@@ -4,6 +4,15 @@ from supabase import create_client, Client
 from openai import OpenAI
 import anthropic
 
+# Importar catálogo de grupos
+from grupos_config import (
+    get_grupo_info, 
+    get_grupo_context, 
+    get_summary_all_grupos,
+    CONTEXTO_MINERA_CENTINELA,
+    GRUPOS_EMPRESAS
+)
+
 # ----------------------------------------------------
 # 1. CONFIGURACIÓN
 # ----------------------------------------------------
@@ -36,15 +45,17 @@ def get_messages_last_n_hours(hours: int = 24) -> list:
         cutoff_time = datetime.now() - timedelta(hours=hours)
         cutoff_str = cutoff_time.isoformat()
         
-        # Consultar mensajes
+        # Consultar mensajes - ahora con la columna 'remitente' correcta
         response = supabase.from_('mensajes_analisis').select(
-            'id, fecha_hora, remitente_numero, remitente_nombre, contenido_texto, es_imagen, url_storage, embedding'
-        ).gte('fecha_hora', cutoff_str).not_.is_('embedding', 'null').order('fecha_hora', desc=False).limit(MAX_MESSAGES_IN_REPORT).execute()
+            'id, grupo_id, fecha_hora, remitente, contenido_texto, es_imagen, url_storage, embedding, whatsapp_message_id'
+        ).gte('fecha_hora', cutoff_str).is_('deleted_at', 'null').not_.is_('embedding', 'null').order('fecha_hora', desc=False).limit(MAX_MESSAGES_IN_REPORT).execute()
         
         return response.data if response.data else []
         
     except Exception as e:
         print(f"❌ Error obteniendo mensajes: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def semantic_search(query_text: str, top_k: int = 20, time_filter_hours: int = None) -> list:
@@ -65,9 +76,6 @@ def semantic_search(query_text: str, top_k: int = 20, time_filter_hours: int = N
         query_embedding = embedding_response.data[0].embedding
         
         # 2. Realizar búsqueda usando pgvector
-        # Nota: Supabase Python client no tiene función match nativa aún,
-        # así que usamos RPC (función de PostgreSQL)
-        
         params = {
             'query_embedding': query_embedding,
             'match_threshold': SIMILARITY_THRESHOLD,
@@ -84,46 +92,36 @@ def semantic_search(query_text: str, top_k: int = 20, time_filter_hours: int = N
         return response.data if response.data else []
         
     except Exception as e:
-        print(f"❌ Error en búsqueda semántica: {e}")
+        print(f"⚠️ Búsqueda semántica no disponible (función SQL no creada): {e}")
+        print(f"   Usando método alternativo...")
+        # Fallback: obtener todos los mensajes del período
+        if time_filter_hours:
+            return get_messages_last_n_hours(time_filter_hours)
         return []
 
 def aggregate_messages_by_topic(messages: list) -> dict:
     """
-    Agrupa mensajes por temas usando clustering simple.
-    Retorna un diccionario con temas identificados.
+    Agrupa mensajes por grupos/empresas y temas.
+    Retorna un diccionario con análisis por grupo.
     """
-    # Para simplicidad, agrupar por remitente y timestamp cercano
-    # En producción, podrías usar clustering de embeddings
-    
-    topics = {
-        'operaciones': [],
-        'mantenimiento': [],
-        'seguridad': [],
-        'produccion': [],
-        'otros': []
-    }
-    
-    keywords = {
-        'operaciones': ['operación', 'proceso', 'planta', 'equipo', 'bomba', 'valvula'],
-        'mantenimiento': ['mantenimiento', 'reparación', 'falla', 'avería', 'preventivo'],
-        'seguridad': ['seguridad', 'accidente', 'riesgo', 'incidente', 'peligro', 'epp'],
-        'produccion': ['producción', 'toneladas', 'rendimiento', 'eficiencia', 'target']
-    }
+    # Agrupar por grupo_id
+    messages_by_group = {}
     
     for msg in messages:
-        content = (msg.get('contenido_texto', '') or '').lower()
-        categorized = False
+        grupo_id = msg.get('grupo_id')
         
-        for topic, kws in keywords.items():
-            if any(kw in content for kw in kws):
-                topics[topic].append(msg)
-                categorized = True
-                break
+        if grupo_id not in messages_by_group:
+            grupo_info = get_grupo_info(grupo_id)
+            messages_by_group[grupo_id] = {
+                'info': grupo_info,
+                'messages': [],
+                'count': 0
+            }
         
-        if not categorized:
-            topics['otros'].append(msg)
+        messages_by_group[grupo_id]['messages'].append(msg)
+        messages_by_group[grupo_id]['count'] += 1
     
-    return topics
+    return messages_by_group
 
 # ----------------------------------------------------
 # 3. GENERACIÓN DE REPORTE CON IA
@@ -138,10 +136,15 @@ def format_messages_for_context(messages: list, max_chars: int = 15000) -> str:
     
     for msg in messages:
         timestamp = msg.get('fecha_hora', 'N/A')
-        sender = msg.get('remitente_nombre', 'Desconocido')
+        sender = msg.get('remitente', 'Desconocido')
         content = msg.get('contenido_texto', '[Sin texto]')
+        is_image = msg.get('es_imagen', False)
         
-        msg_text = f"\n[{timestamp}] {sender}:\n{content}\n"
+        # Formato con remitente
+        msg_text = f"\n[{timestamp}] {sender}"
+        if is_image:
+            msg_text += " [📷 Imagen/Video]"
+        msg_text += f":\n{content}\n"
         
         if current_length + len(msg_text) > max_chars:
             context_parts.append("\n... (mensajes adicionales omitidos por límite de longitud)")
@@ -152,30 +155,48 @@ def format_messages_for_context(messages: list, max_chars: int = 15000) -> str:
     
     return "".join(context_parts)
 
-def generate_report_with_claude(messages: list, topics: dict) -> str:
+def generate_report_with_claude(messages: list, groups_data: dict) -> str:
     """
     Genera el reporte ejecutivo usando Claude (Anthropic).
     """
     if not claude_client:
         print("⚠️ Claude API no configurado, usando GPT-4 como fallback")
-        return generate_report_with_gpt4(messages, topics)
+        return generate_report_with_gpt4(messages, groups_data)
     
     try:
         # Preparar contexto
         context = format_messages_for_context(messages)
         
-        # Resumen de tópicos
-        topic_summary = "\n".join([
-            f"- {topic.capitalize()}: {len(msgs)} mensajes" 
-            for topic, msgs in topics.items() if len(msgs) > 0
-        ])
+        # Resumen de grupos activos
+        groups_summary = []
+        for grupo_id, data in groups_data.items():
+            if data['count'] > 0:
+                info = data['info']
+                if info:
+                    groups_summary.append(
+                        f"- {info['nombre']} ({info['empresa']}): {data['count']} mensajes - {info['tipo_servicio']}"
+                    )
+                else:
+                    groups_summary.append(f"- Grupo ID {grupo_id}: {data['count']} mensajes")
         
-        prompt = f"""Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
+        groups_summary_text = "\n".join(groups_summary)
+        
+        # Contexto de todas las empresas
+        all_grupos_context = get_summary_all_grupos()
+        
+        prompt = f"""{CONTEXTO_MINERA_CENTINELA}
+
+---
+
+Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
 
 Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
 
-**DISTRIBUCIÓN DE MENSAJES POR TEMA:**
-{topic_summary}
+**GRUPOS/EMPRESAS MONITOREADOS:**
+{all_grupos_context}
+
+**ACTIVIDAD DEL PERÍODO (Últimas 24 horas):**
+{groups_summary_text}
 
 **CONVERSACIONES COMPLETAS:**
 {context}
@@ -183,29 +204,37 @@ Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones
 **INSTRUCCIONES PARA EL REPORTE:**
 
 1. **Estructura del Reporte:**
-   - Resumen Ejecutivo (3-4 líneas)
-   - Hallazgos Principales (bullet points, máximo 5)
-   - Situaciones Críticas o Alertas (si las hay)
-   - Avances en Proyectos (si se mencionan)
+   - Resumen Ejecutivo (3-4 líneas con los puntos más críticos)
+   - Análisis por Empresa/Servicio (sección para cada empresa con actividad)
+   - Situaciones Críticas o Alertas (si las hay, destacar problemas que requieren atención)
+   - Avances en Proyectos o Trabajos (si se mencionan)
    - Próximos Pasos o Seguimientos Requeridos
 
-2. **Estilo:**
+2. **Para cada Empresa/Servicio:**
+   - Nombre de la empresa y tipo de servicio
+   - Resumen de actividades o eventos principales
+   - Problemas o incidentes (si los hay)
+   - Estado general (operando normal, con restricciones, detenido, etc.)
+
+3. **Estilo:**
    - Profesional, conciso y accionable
    - Enfócate en lo relevante para la gestión
    - Usa números y datos cuando estén disponibles
    - Identifica problemas recurrentes o patrones
+   - Menciona específicamente las empresas por nombre (AMECO, FTF, ELEVEN, etc.)
 
-3. **Formato:**
+4. **Formato:**
    - Usa Markdown
    - Incluye encabezados claros (##)
    - Usa bullets para listas
    - Destaca lo crítico con **negrita**
+   - Usa tablas si hay datos comparativos
 
 Genera el reporte ahora:"""
 
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            max_tokens=3000,
             messages=[
                 {"role": "user", "content": prompt}
             ]
@@ -217,24 +246,37 @@ Genera el reporte ahora:"""
         print(f"❌ Error generando reporte con Claude: {e}")
         return None
 
-def generate_report_with_gpt4(messages: list, topics: dict) -> str:
+def generate_report_with_gpt4(messages: list, groups_data: dict) -> str:
     """
     Genera el reporte ejecutivo usando GPT-4 (fallback).
     """
     try:
         context = format_messages_for_context(messages)
         
-        topic_summary = "\n".join([
-            f"- {topic.capitalize()}: {len(msgs)} mensajes" 
-            for topic, msgs in topics.items() if len(msgs) > 0
-        ])
+        # Resumen de grupos activos
+        groups_summary = []
+        for grupo_id, data in groups_data.items():
+            if data['count'] > 0:
+                info = data['info']
+                if info:
+                    groups_summary.append(
+                        f"- {info['nombre']} ({info['empresa']}): {data['count']} mensajes - {info['tipo_servicio']}"
+                    )
+                else:
+                    groups_summary.append(f"- Grupo ID {grupo_id}: {data['count']} mensajes")
         
-        prompt = f"""Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
+        groups_summary_text = "\n".join(groups_summary)
+        all_grupos_context = get_summary_all_grupos()
+        
+        prompt = f"""{CONTEXTO_MINERA_CENTINELA}
 
-Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
+---
 
-**DISTRIBUCIÓN DE MENSAJES POR TEMA:**
-{topic_summary}
+**GRUPOS/EMPRESAS MONITOREADOS:**
+{all_grupos_context}
+
+**ACTIVIDAD DEL PERÍODO (Últimas 24 horas):**
+{groups_summary_text}
 
 **CONVERSACIONES COMPLETAS:**
 {context}
@@ -242,22 +284,19 @@ Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones
 **INSTRUCCIONES PARA EL REPORTE:**
 
 1. **Estructura del Reporte:**
-   - Resumen Ejecutivo (3-4 líneas)
-   - Hallazgos Principales (bullet points, máximo 5)
-   - Situaciones Críticas o Alertas (si las hay)
-   - Avances en Proyectos (si se mencionan)
-   - Próximos Pasos o Seguimientos Requeridos
+   - Resumen Ejecutivo (3-4 líneas con los puntos más críticos)
+   - Análisis por Empresa/Servicio
+   - Situaciones Críticas o Alertas
+   - Avances en Proyectos
+   - Próximos Pasos
 
 2. **Estilo:**
    - Profesional, conciso y accionable
-   - Enfócate en lo relevante para la gestión
-   - Usa números y datos cuando estén disponibles
-   - Identifica problemas recurrentes o patrones
+   - Usa números y datos
+   - Identifica patrones
 
 3. **Formato:**
    - Usa Markdown
-   - Incluye encabezados claros (##)
-   - Usa bullets para listas
    - Destaca lo crítico con **negrita**
 
 Genera el reporte ahora:"""
@@ -268,7 +307,7 @@ Genera el reporte ahora:"""
                 {"role": "system", "content": "Eres un analista experto en operaciones mineras."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=2000,
+            max_tokens=3000,
             temperature=0.3
         )
         
@@ -339,17 +378,20 @@ def generate_daily_report():
     
     print(f"✅ Se encontraron {len(messages)} mensajes con embeddings.")
     
-    # 2. Agrupar por tópicos
-    print("\n🏷️ Agrupando mensajes por tópicos...")
-    topics = aggregate_messages_by_topic(messages)
+    # 2. Agrupar por grupos/empresas
+    print("\n🏷️ Agrupando mensajes por grupos/empresas...")
+    groups_data = aggregate_messages_by_topic(messages)
     
-    for topic, msgs in topics.items():
-        if len(msgs) > 0:
-            print(f"   • {topic.capitalize()}: {len(msgs)} mensajes")
+    for grupo_id, data in groups_data.items():
+        info = data['info']
+        if info:
+            print(f"   • {info['nombre']} ({info['empresa']}): {data['count']} mensajes")
+        else:
+            print(f"   • Grupo ID {grupo_id}: {data['count']} mensajes")
     
     # 3. Generar reporte con IA
     print("\n🤖 Generando reporte ejecutivo con IA...")
-    report = generate_report_with_claude(messages, topics)
+    report = generate_report_with_claude(messages, groups_data)
     
     if not report:
         print("❌ No se pudo generar el reporte.")
