@@ -28,7 +28,9 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY)
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 # Configuración del reporte
-REPORT_TIME_WINDOW_HOURS = 24  # Últimas 24 horas
+REPORT_TIME_WINDOW_HOURS = int(os.environ.get("REPORT_TIME_WINDOW_HOURS", "24"))  # Últimas N horas
+REPORT_START_DATE = os.environ.get("REPORT_START_DATE")  # Formato: "2025-12-01" (opcional)
+REPORT_END_DATE = os.environ.get("REPORT_END_DATE")      # Formato: "2025-12-06" (opcional)
 MAX_MESSAGES_IN_REPORT = 100   # Máximo de mensajes a analizar
 SIMILARITY_THRESHOLD = 0.3     # Umbral mínimo de similitud para búsqueda semántica
 
@@ -36,19 +38,45 @@ SIMILARITY_THRESHOLD = 0.3     # Umbral mínimo de similitud para búsqueda sem�
 # 2. FUNCIONES DE CONSULTA RAG
 # ----------------------------------------------------
 
-def get_messages_last_n_hours(hours: int = 24) -> list:
+def get_messages_by_date_range(start_date: str = None, end_date: str = None, hours: int = None) -> list:
     """
-    Obtiene todos los mensajes de las últimas N horas que tienen embedding.
+    Obtiene mensajes por rango de fechas o por últimas N horas.
+    
+    Prioridad:
+    1. Si start_date y end_date están definidos, usa ese rango
+    2. Si no, usa las últimas N horas
+    
+    Args:
+        start_date: Fecha inicio en formato ISO "2025-12-01" o "2025-12-01T00:00:00"
+        end_date: Fecha fin en formato ISO "2025-12-06" o "2025-12-06T23:59:59"
+        hours: Número de horas hacia atrás desde ahora
     """
     try:
-        # Calcular timestamp de inicio
-        cutoff_time = datetime.now() - timedelta(hours=hours)
-        cutoff_str = cutoff_time.isoformat()
-        
-        # Consultar mensajes - ahora con la columna 'remitente' correcta
-        response = supabase.from_('mensajes_analisis').select(
-            'id, grupo_id, fecha_hora, remitente, contenido_texto, es_imagen, url_storage, embedding, whatsapp_message_id'
-        ).gte('fecha_hora', cutoff_str).is_('deleted_at', 'null').not_.is_('embedding', 'null').order('fecha_hora', desc=False).limit(MAX_MESSAGES_IN_REPORT).execute()
+        # Determinar el rango de fechas
+        if start_date and end_date:
+            # Usar rango específico
+            start_str = start_date if 'T' in start_date else f"{start_date}T00:00:00"
+            end_str = end_date if 'T' in end_date else f"{end_date}T23:59:59"
+            
+            print(f"   📅 Rango de fechas: {start_str} a {end_str}")
+            
+            # Consultar mensajes en rango
+            response = supabase.from_('mensajes_analisis').select(
+                'id, grupo_id, fecha_hora, remitente, contenido_texto, es_imagen, url_storage, embedding, whatsapp_message_id'
+            ).gte('fecha_hora', start_str).lte('fecha_hora', end_str).is_('deleted_at', 'null').not_.is_('embedding', 'null').order('fecha_hora', desc=False).limit(MAX_MESSAGES_IN_REPORT).execute()
+            
+        elif hours:
+            # Usar últimas N horas
+            cutoff_time = datetime.now() - timedelta(hours=hours)
+            cutoff_str = cutoff_time.isoformat()
+            
+            print(f"   ⏰ Últimas {hours} horas (desde {cutoff_str})")
+            
+            response = supabase.from_('mensajes_analisis').select(
+                'id, grupo_id, fecha_hora, remitente, contenido_texto, es_imagen, url_storage, embedding, whatsapp_message_id'
+            ).gte('fecha_hora', cutoff_str).is_('deleted_at', 'null').not_.is_('embedding', 'null').order('fecha_hora', desc=False).limit(MAX_MESSAGES_IN_REPORT).execute()
+        else:
+            raise ValueError("Debe especificar start_date/end_date o hours")
         
         return response.data if response.data else []
         
@@ -57,6 +85,13 @@ def get_messages_last_n_hours(hours: int = 24) -> list:
         import traceback
         traceback.print_exc()
         return []
+
+def get_messages_last_n_hours(hours: int = 24) -> list:
+    """
+    Obtiene todos los mensajes de las últimas N horas que tienen embedding.
+    (Mantiene compatibilidad con código existente)
+    """
+    return get_messages_by_date_range(hours=hours)
 
 def semantic_search(query_text: str, top_k: int = 20, time_filter_hours: int = None) -> list:
     """
@@ -321,9 +356,14 @@ Genera el reporte ahora:"""
 # 4. GUARDADO Y EXPORTACIÓN
 # ----------------------------------------------------
 
-def save_report_to_file(report_content: str, output_dir: str = "/mnt/user-data/outputs") -> str:
+def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str = "/tmp") -> str:
     """
     Guarda el reporte en un archivo Markdown con timestamp.
+    
+    Args:
+        report_content: Contenido del reporte en Markdown
+        periodo_texto: Texto descriptivo del período (ej: "Últimas 24 horas")
+        output_dir: Directorio donde guardar (default: /tmp para Railway)
     """
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -333,9 +373,8 @@ def save_report_to_file(report_content: str, output_dir: str = "/mnt/user-data/o
         # Agregar header al reporte
         header = f"""# Reporte Ejecutivo Diario - Minera Centinela
 **Equipo:** GSdSO (Gestión de Sistemas de Operación)  
-**Fecha:** {datetime.now().strftime("%d/%m/%Y")}  
-**Período:** Últimas 24 horas  
-**Generado:** {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+**Fecha de generación:** {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}  
+**Período analizado:** {periodo_texto}  
 
 ---
 
@@ -347,10 +386,20 @@ def save_report_to_file(report_content: str, output_dir: str = "/mnt/user-data/o
             f.write(full_content)
         
         print(f"✅ Reporte guardado en: {filepath}")
+        
+        # También imprimir el contenido completo en logs para que se vea en Railway
+        print("\n" + "="*70)
+        print("📄 CONTENIDO COMPLETO DEL REPORTE:")
+        print("="*70)
+        print(full_content)
+        print("="*70 + "\n")
+        
         return filepath
         
     except Exception as e:
         print(f"❌ Error guardando reporte: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # ----------------------------------------------------
@@ -365,12 +414,29 @@ def generate_daily_report():
     print("📊 GENERADOR DE REPORTE EJECUTIVO DIARIO")
     print("="*70)
     print(f"🕐 Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-    print(f"⏰ Período: Últimas {REPORT_TIME_WINDOW_HOURS} horas")
+    
+    # Determinar modo de consulta
+    if REPORT_START_DATE and REPORT_END_DATE:
+        print(f"📅 Modo: Rango de fechas específico")
+        print(f"   Inicio: {REPORT_START_DATE}")
+        print(f"   Fin: {REPORT_END_DATE}")
+        periodo_texto = f"del {REPORT_START_DATE} al {REPORT_END_DATE}"
+    else:
+        print(f"⏰ Modo: Últimas {REPORT_TIME_WINDOW_HOURS} horas")
+        periodo_texto = f"Últimas {REPORT_TIME_WINDOW_HOURS} horas"
+    
     print("="*70 + "\n")
     
     # 1. Obtener mensajes del período
     print("📥 Obteniendo mensajes del período...")
-    messages = get_messages_last_n_hours(REPORT_TIME_WINDOW_HOURS)
+    
+    if REPORT_START_DATE and REPORT_END_DATE:
+        messages = get_messages_by_date_range(
+            start_date=REPORT_START_DATE,
+            end_date=REPORT_END_DATE
+        )
+    else:
+        messages = get_messages_by_date_range(hours=REPORT_TIME_WINDOW_HOURS)
     
     if not messages:
         print("⚠️ No se encontraron mensajes en el período especificado.")
@@ -401,7 +467,7 @@ def generate_daily_report():
     
     # 4. Guardar reporte
     print("\n💾 Guardando reporte...")
-    filepath = save_report_to_file(report)
+    filepath = save_report_to_file(report, periodo_texto)
     
     if filepath:
         print(f"\n{'='*70}")
