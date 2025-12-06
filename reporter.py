@@ -1,9 +1,10 @@
 import os
+import json
 from supabase import create_client, Client
 from openai import OpenAI
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# --- CONFIGURACIÓN DE ACCESO (Mismos Secrets que usa app.py) ---
+# --- CONFIGURACIÓN DE ACCESO (Asume Variables de Entorno en Railway) ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -12,40 +13,40 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Modelo de embeddings usado en la Fase II (debe coincidir con la tabla)
-EMBEDDING_MODEL = "text-embedding-3-small" 
-LLM_MODEL = "gpt-4-turbo-2024-04-09" # Puedes usar 'gpt-4o' o el modelo Claude de tu elección
+# Modelos
+EMBEDDING_MODEL = "text-embedding-3-small"
+LLM_MODEL = "gpt-4-turbo-2024-04-09" # O tu modelo preferido (Claude 3.5 Sonnet)
 
 # --- 1. DEFINICIÓN DEL PROMPT MAESTRO ---
 
-# Este prompt es una instrucción estricta para el LLM
 PROMPT_MAESTRO = """
-Actúa como un analista de negocios C-Level. Tu objetivo es generar un reporte ejecutivo diario basado
-en las conversaciones de WhatsApp del día anterior.
+Actúa como un analista de negocios C-Level. Tu objetivo es generar un reporte ejecutivo diario
+basado únicamente en el CONTEXTO proporcionado de las conversaciones de WhatsApp del día anterior.
 
 INSTRUCCIONES DE FORMATO (Output):
 - Utiliza formato Markdown.
+- Máximo 500 palabras.
 - Tono: Formal, objetivo y conciso.
 
-ANÁLISIS DE DATOS (Basado en el contexto proporcionado a continuación):
+ANÁLISIS DE DATOS:
 
 ## I. Tareas Críticas y Acuerdos
-1. **Acuerdos del Día:** (Máximo 3 puntos). Enumera las decisiones, acuerdos o tareas asignadas más relevantes.
-2. **Problemas Bloqueantes:** (Máximo 2 puntos). Identifica obstáculos, escalamientos o problemas que requieran acción gerencial inmediata.
-3. **Riesgos Identificados:** (Un párrafo). Resumen de cualquier riesgo potencial mencionado (ej: retrasos, fallas de proveedores).
+1. **Acuerdos del Día:** (Máximo 3 puntos). Las decisiones clave o compromisos de acción.
+2. **Problemas Bloqueantes:** (Máximo 2 puntos). Obstáculos o escalamientos que requieren intervención.
+3. **Riesgos Identificados:** (Un párrafo). Resumen de riesgos potenciales (ej: retrasos, fallas).
 
 ## II. Resumen Operacional
-1. **Métricas Clave:** (Sintetiza avance). Citas de progreso o estados de proyectos (incluye la descripción de imágenes procesadas si es relevante).
-2. **Próximos Pasos:** (Máximo 3 puntos). Tareas que deben iniciar mañana.
+1. **Métricas Clave/Avance:** Citas de progreso de proyectos.
+2. **Próximos Pasos:** (Máximo 3 puntos). Tareas inmediatas pendientes.
 
 ---
-REGLA DE ORO: Si no encuentras información sobre una sección, omítela. NUNCA inventes información.
+REGLA DE ORO: Si no encuentras información para una sección, omítela o responde: "No se identificaron datos relevantes." NUNCA INVENTES.
 """
 
 # --- 2. FUNCIONES DE CONSULTA RAG ---
 
 def get_query_embedding(query: str) -> list[float]:
-    """Genera el embedding del término de búsqueda."""
+    """Genera el embedding del término de búsqueda usando OpenAI."""
     response = openai_client.embeddings.create(
         input=query,
         model=EMBEDDING_MODEL
@@ -53,57 +54,45 @@ def get_query_embedding(query: str) -> list[float]:
     return response.data[0].embedding
 
 def get_context_from_db(query_embedding: list[float]) -> str:
-    """Consulta la DB usando pgvector y recupera los mensajes más relevantes."""
+    """Consulta la DB usando la función RPC match_messages."""
     
-    # 24 horas atrás para un reporte diario
-    time_threshold = (datetime.now() - timedelta(hours=24)).isoformat()
+    # Parámetros para la función RPC
+    params = {
+        'query_embedding': query_embedding,
+        'match_threshold': 0.78, # Umbral de similitud (ajustable)
+        'match_count': 50,      # Número de fragmentos a recuperar
+        'time_limit_hours': 24  # Últimas 24 horas
+    }
     
-    # Consulta SQL nativa para pgvector
-    # La consulta busca los vectores más cercanos a nuestro 'query_embedding'
-    # usando el operador de distancia del coseno (<=>)
-    # LIMIT 50: trae los 50 fragmentos más relevantes para evitar saturar el LLM (límite de tokens)
-    
-    consulta_sql = f"""
-    SELECT
-        contenido_texto,
-        fecha_hora,
-        remitente
-    FROM mensajes_analisis
-    WHERE fecha_hora >= '{time_threshold}' AND embedding IS NOT NULL
-    ORDER BY embedding <=> '{query_embedding}'::vector
-    LIMIT 50;
-    """
-    
-    # Ejecutar la consulta en Supabase
     try:
-        data = supabase.rpc('match_messages', params={'query_embedding': query_embedding, 'match_threshold': 0.78}).execute()
-        
-        # Nota: La forma más robusta es crear una función RPC en Supabase para el pgvector
-        # Para simplificar aquí, se usa una consulta RPC ficticia que simula la búsqueda.
-        
-        # Aquí se simula la ejecución de la consulta
-        response = supabase.from('mensajes_analisis').select('contenido_texto', 'fecha_hora', 'remitente').order('fecha_hora', desc=True).limit(50).execute()
+        # Llamada a la función RPC que usa pgvector
+        response = supabase.rpc('match_messages', params).execute()
         
         context_data = response.data
         
     except Exception as e:
-        print(f"Error al consultar Supabase: {e}")
+        print(f"Error al consultar Supabase (RPC): {e}")
         return "ERROR: No se pudo obtener contexto de la base de datos."
 
     # Formatear el contexto para el LLM
     context_list = []
     for row in context_data:
-        context_list.append(f"[{row['fecha_hora']} | {row['remitente']}]: {row['contenido_texto']}")
+        # Incluimos la similitud para fines de depuración
+        sim = round(row.get('similarity', 0.0), 3)
+        context_list.append(f"[Similitud: {sim} | {row['fecha_hora']} | {row['remitente']}]: {row['contenido_texto']}")
 
+    if not context_list:
+        return "SIN DATOS RELEVANTES: No se encontraron mensajes que coincidan con la búsqueda RAG en las últimas 24 horas."
+        
     return "\n---\n".join(context_list)
 
 # --- 3. LÓGICA PRINCIPAL DEL REPORTE ---
 
 def generate_daily_report():
-    print("--- 🧠 Generando Reporte Ejecutivo RAG ---")
+    print("--- 🧠 Iniciando Generación de Reporte RAG ---")
     
-    # 1. Definir el "término de búsqueda" para obtener un contexto amplio (último día)
-    query_topic = "Resumen de acuerdos, problemas y avances del último día de operación en los grupos de WhatsApp."
+    # 1. Definir el "término de búsqueda" para obtener un contexto amplio
+    query_topic = "Resumen de acuerdos, problemas y avances del último día de operación en los grupos de WhatsApp para reporte ejecutivo."
     
     # 2. Generar embedding de la consulta
     query_vector = get_query_embedding(query_topic)
@@ -111,33 +100,32 @@ def generate_daily_report():
     # 3. Obtener el contexto más relevante del pgvector (los 50 fragmentos clave)
     contexto_relevante = get_context_from_db(query_vector)
     
-    if "ERROR" in contexto_relevante:
-        return contexto_relevante
-
-    print(f"Contexto recuperado (Longitud: {len(contexto_relevante)} chars). Pasando al LLM...")
+    if "ERROR" in contexto_relevante or "SIN DATOS RELEVANTES" in contexto_relevante:
+        print(f"Abortando reporte. {contexto_relevante}")
+        return f"Reporte fallido: {contexto_relevante}"
 
     # 4. Enviar el Prompt Maestro + Contexto al LLM
     try:
-        prompt_final = f"{PROMPT_MAESTRO}\n\n--- CONTEXTO DEL DÍA ---\n{contexto_relevante}"
+        prompt_final = f"{PROMPT_MAESTRO}\n\n--- CONTEXTO RECUPERADO DE LA DB ---\n{contexto_relevante}"
         
+        # Enviar la solicitud a la API de OpenAI
         chat_completion = openai_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": "Eres un analista ejecutivo experto, conciso y formal."},
                 {"role": "user", "content": prompt_final}
             ],
-            temperature=0.1, # Temperatura baja para que sea objetivo y no creativo
+            temperature=0.1,
         )
         reporte_final = chat_completion.choices[0].message.content
-        
-        print("Reporte generado con éxito.")
-        
-        # 5. Salida/Distribución
-        # En una aplicación real, aquí enviarías un email o lo guardarías en Supabase.
         
         print("\n\n=============== REPORTE FINAL GENERADO ===============")
         print(reporte_final)
         print("======================================================")
+        
+        # 5. Distribución (Aquí añadirías el código de envío de email o WhatsApp)
+        # Ejemplo: distribute_report_via_email(reporte_final)
+        
         return reporte_final
         
     except Exception as e:
