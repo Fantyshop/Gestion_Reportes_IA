@@ -162,9 +162,10 @@ def aggregate_messages_by_topic(messages: list) -> dict:
 # 3. GENERACIÓN DE REPORTE CON IA
 # ----------------------------------------------------
 
-def format_messages_for_context(messages: list, max_chars: int = 15000) -> str:
+def format_messages_for_context(messages: list, max_chars: int = 20000) -> str:
     """
     Formatea los mensajes en un contexto legible para la IA.
+    Incluye información sobre archivos adjuntos (imágenes, videos, documentos).
     """
     context_parts = []
     current_length = 0
@@ -174,11 +175,26 @@ def format_messages_for_context(messages: list, max_chars: int = 15000) -> str:
         sender = msg.get('remitente', 'Desconocido')
         content = msg.get('contenido_texto', '[Sin texto]')
         is_image = msg.get('es_imagen', False)
+        url_storage = msg.get('url_storage', '')
         
         # Formato con remitente
         msg_text = f"\n[{timestamp}] {sender}"
-        if is_image:
-            msg_text += " [📷 Imagen/Video]"
+        
+        # Identificar tipo de archivo adjunto
+        if url_storage:
+            if '.mp4' in url_storage.lower() or '.mov' in url_storage.lower():
+                msg_text += " [🎬 Video adjunto]"
+            elif is_image or any(ext in url_storage.lower() for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']):
+                msg_text += " [📷 Imagen adjunta]"
+            elif '.pdf' in url_storage.lower():
+                msg_text += " [📄 PDF adjunto]"
+            elif any(ext in url_storage.lower() for ext in ['.xlsx', '.xls']):
+                msg_text += " [📊 Excel adjunto]"
+            elif any(ext in url_storage.lower() for ext in ['.docx', '.doc']):
+                msg_text += " [📝 Word adjunto]"
+            else:
+                msg_text += " [📎 Archivo adjunto]"
+        
         msg_text += f":\n{content}\n"
         
         if current_length + len(msg_text) > max_chars:
@@ -225,7 +241,7 @@ def generate_report_with_claude(messages: list, groups_data: dict) -> str:
 
 Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
 
-Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
+Tu tarea es generar un **Reporte Ejecutivo Diario DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
 
 **GRUPOS/EMPRESAS MONITOREADOS:**
 {all_grupos_context}
@@ -239,37 +255,66 @@ Tu tarea es generar un **Reporte Ejecutivo Diario** basado en las conversaciones
 **INSTRUCCIONES PARA EL REPORTE:**
 
 1. **Estructura del Reporte:**
-   - Resumen Ejecutivo (3-4 líneas con los puntos más críticos)
-   - Análisis por Empresa/Servicio (sección para cada empresa con actividad)
-   - Situaciones Críticas o Alertas (si las hay, destacar problemas que requieren atención)
-   - Avances en Proyectos o Trabajos (si se mencionan)
-   - Próximos Pasos o Seguimientos Requeridos
+   - **Resumen Ejecutivo** (5-6 líneas destacando lo más crítico y relevante)
+   - **Análisis Detallado por Empresa/Servicio** (sección dedicada para cada empresa con actividad)
+   - **Incidentes y Problemas Operacionales** (detallados con causa, efecto y acciones)
+   - **Trabajos y Mantenimientos Realizados** (con especificaciones técnicas)
+   - **Indicadores y Métricas Operacionales** (si se mencionan números, capacidades, tiempos)
+   - **Equipos y Sistemas Mencionados** (identificar equipos específicos por TAG o nombre)
+   - **Seguimiento y Acciones Pendientes**
 
-2. **Para cada Empresa/Servicio:**
+2. **Para cada Empresa/Servicio (análisis detallado):**
    - Nombre de la empresa y tipo de servicio
-   - Resumen de actividades o eventos principales
-   - Problemas o incidentes (si los hay)
-   - Estado general (operando normal, con restricciones, detenido, etc.)
+   - **Actividades realizadas con detalle técnico:**
+     * Equipos específicos mencionados (incluir TAGs, modelos, ubicaciones)
+     * Trabajos de mantenimiento (preventivo, correctivo, predictivo)
+     * Parámetros operacionales mencionados (presión, flujo, temperatura, etc.)
+     * Horarios y turnos si se mencionan
+   - **Problemas o incidentes:**
+     * Descripción técnica del problema
+     * Causa raíz si se menciona
+     * Impacto en la operación
+     * Acciones correctivas tomadas
+   - **Material multimedia adjunto:**
+     * Si hay imágenes adjuntas: mencionar que se documentó visualmente
+     * Si hay videos: mencionar que se registró evidencia audiovisual
+     * Si hay documentos: mencionar que se adjuntó documentación técnica
+   - **Estado operacional:** (operando normal, con restricciones, detenido, en mantenimiento)
 
-3. **Estilo:**
-   - Profesional, conciso y accionable
-   - Enfócate en lo relevante para la gestión
-   - Usa números y datos cuando estén disponibles
-   - Identifica problemas recurrentes o patrones
-   - Menciona específicamente las empresas por nombre (AMECO, FTF, ELEVEN, etc.)
+3. **Nivel de Detalle Técnico:**
+   - Incluye TODOS los números, capacidades, presiones, flujos, temperaturas mencionados
+   - Menciona equipos específicos por nombre/TAG cuando aparezcan
+   - Identifica ubicaciones específicas (planta, área, sector)
+   - Documenta horarios exactos de eventos importantes
+   - Registra nombres de personal clave mencionado
+   - Si se mencionan procedimientos o normativas (SPCI, permisos, etc.), inclúyelos
 
-4. **Formato:**
-   - Usa Markdown
-   - Incluye encabezados claros (##)
-   - Usa bullets para listas
-   - Destaca lo crítico con **negrita**
-   - Usa tablas si hay datos comparativos
+4. **Tratamiento de Archivos Adjuntos:**
+   - Cuando veas [📷 Imagen adjunta], menciona: "Se adjuntó evidencia fotográfica"
+   - Cuando veas [🎬 Video adjunto], menciona: "Se registró video del evento/equipo"
+   - Cuando veas [📄 PDF adjunto] o [📊 Excel adjunto], menciona el tipo de documento
+   - Si el análisis de imagen/video generado por IA está en el mensaje, úsalo para enriquecer el reporte
 
-Genera el reporte ahora:"""
+5. **Estilo:**
+   - Técnico pero claro y ejecutivo
+   - Usa terminología minera apropiada
+   - Incluye TODOS los datos numéricos mencionados
+   - Organiza información en subsecciones cuando sea necesario
+   - Destaca información crítica o urgente
+
+6. **Formato:**
+   - Usa Markdown profesional
+   - Encabezados claros con ## y ###
+   - Tablas para datos comparativos o métricas
+   - Bullets para listas de actividades
+   - **Negrita** para alertas o críticos
+   - `Código` para TAGs de equipos (ej: `P-101`, `TK-305`)
+
+Genera el reporte ahora, siendo lo más detallado y técnico posible:"""
 
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=3000,
+            max_tokens=6000,  # Aumentado para reportes más detallados
             messages=[
                 {"role": "user", "content": prompt}
             ]
@@ -310,39 +355,46 @@ def generate_report_with_gpt4(messages: list, groups_data: dict) -> str:
 **GRUPOS/EMPRESAS MONITOREADOS:**
 {all_grupos_context}
 
-**ACTIVIDAD DEL PERÍODO (Últimas 24 horas):**
+**ACTIVIDAD DEL PERÍODO:**
 {groups_summary_text}
 
 **CONVERSACIONES COMPLETAS:**
 {context}
 
-**INSTRUCCIONES PARA EL REPORTE:**
+**INSTRUCCIONES PARA REPORTE TÉCNICO DETALLADO:**
 
-1. **Estructura del Reporte:**
-   - Resumen Ejecutivo (3-4 líneas con los puntos más críticos)
-   - Análisis por Empresa/Servicio
-   - Situaciones Críticas o Alertas
-   - Avances en Proyectos
-   - Próximos Pasos
+1. **Estructura:**
+   - Resumen Ejecutivo (5-6 líneas)
+   - Análisis Detallado por Empresa
+   - Incidentes y Problemas Operacionales
+   - Trabajos y Mantenimientos
+   - Indicadores y Métricas
+   - Equipos y Sistemas Mencionados
+   - Acciones Pendientes
 
-2. **Estilo:**
-   - Profesional, conciso y accionable
-   - Usa números y datos
-   - Identifica patrones
+2. **Nivel de Detalle:**
+   - Incluye TODOS los números (presión, flujo, temperatura, capacidad)
+   - Menciona equipos específicos por TAG
+   - Documenta horarios exactos
+   - Identifica ubicaciones (planta, área, sector)
+   - Registra personal clave mencionado
 
-3. **Formato:**
-   - Usa Markdown
-   - Destaca lo crítico con **negrita**
+3. **Archivos Adjuntos:**
+   - [📷 Imagen]: "Se adjuntó evidencia fotográfica"
+   - [🎬 Video]: "Se registró video"
+   - Si hay análisis de IA de imagen/video, úsalo
 
-Genera el reporte ahora:"""
+4. **Formato Markdown profesional con tablas, bullets y código para TAGs**
+
+Genera reporte técnico detallado ahora:"""
 
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "Eres un analista experto en operaciones mineras."},
+                {"role": "system", "content": "Eres un analista experto en operaciones mineras con profundo conocimiento técnico."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=3000,
+            max_tokens=6000,  # Aumentado para reportes más detallados
             temperature=0.3
         )
         
