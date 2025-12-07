@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 from openai import OpenAI
 import anthropic
+import json
 
 # Importar catálogo de grupos
 from grupos_config import (
@@ -12,6 +13,9 @@ from grupos_config import (
     CONTEXTO_MINERA_CENTINELA,
     GRUPOS_EMPRESAS
 )
+
+# Importar sistema de análisis avanzado
+from advanced_analysis import generate_advanced_technical_report
 
 # ----------------------------------------------------
 # 1. CONFIGURACIÓN
@@ -33,6 +37,7 @@ REPORT_START_DATE = os.environ.get("REPORT_START_DATE")  # Formato: "2025-12-01"
 REPORT_END_DATE = os.environ.get("REPORT_END_DATE")      # Formato: "2025-12-06" (opcional)
 MAX_MESSAGES_IN_REPORT = 100   # Máximo de mensajes a analizar
 SIMILARITY_THRESHOLD = 0.3     # Umbral mínimo de similitud para búsqueda semántica
+USE_ADVANCED_ANALYSIS = os.environ.get("USE_ADVANCED_ANALYSIS", "true").lower() == "true"  # Análisis multi-pasada
 
 # ----------------------------------------------------
 # 2. FUNCIONES DE CONSULTA RAG
@@ -264,13 +269,14 @@ def generate_report_with_claude(messages: list, groups_data: dict) -> str:
 
 ---
 
-Eres un analista senior de operaciones mineras, específicamente para el área de "Soporte a la operación", contextualiza cada detalle.
-Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Soporte a la operación).
+Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
+
+Tu tarea es generar un **Reporte Ejecutivo Diario DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
 
 **GRUPOS/EMPRESAS MONITOREADOS:**
 {all_grupos_context}
 
-**ACTIVIDAD DEL PERÍODO:**
+**ACTIVIDAD DEL PERÍODO (Últimas 24 horas):**
 {groups_summary_text}
 
 **CONVERSACIONES COMPLETAS:**
@@ -279,10 +285,10 @@ Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversa
 **INSTRUCCIONES PARA EL REPORTE:**
 
 1. **Estructura del Reporte:**
-   - **Resumen Ejecutivo** (10-12 líneas destacando lo más crítico y relevante)
+   - **Resumen Ejecutivo** (5-6 líneas destacando lo más crítico y relevante)
    - **Análisis Detallado por Empresa/Servicio** (sección dedicada para cada empresa con actividad)
    - **Incidentes y Problemas Operacionales** (detallados con causa, efecto y acciones)
-   - **Trabajos y actividades Realizados** (con especificaciones técnicas)
+   - **Trabajos y Mantenimientos Realizados** (con especificaciones técnicas)
    - **Indicadores y Métricas Operacionales** (si se mencionan números, capacidades, tiempos)
    - **Equipos y Sistemas Mencionados** (identificar equipos específicos por TAG o nombre)
    - **Seguimiento y Acciones Pendientes**
@@ -291,7 +297,7 @@ Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversa
    - Nombre de la empresa y tipo de servicio
    - **Actividades realizadas con detalle técnico:**
      * Equipos específicos mencionados (incluir TAGs, modelos, ubicaciones)
-     * Trabajos de mantenimiento y actividadesrealizadas (preventivo, correctivo, predictivo)
+     * Trabajos de mantenimiento (preventivo, correctivo, predictivo)
      * Parámetros operacionales mencionados (presión, flujo, temperatura, etc.)
      * Horarios y turnos si se mencionan
    - **Problemas o incidentes:**
@@ -303,7 +309,6 @@ Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversa
      * Si hay imágenes adjuntas: mencionar que se documentó visualmente
      * Si hay videos: mencionar que se registró evidencia audiovisual
      * Si hay documentos: mencionar que se adjuntó documentación técnica
-     * Considera la información emn¡bebida de la descripción de elementos como imágenes, videos y/o documentos.
    - **Estado operacional:** (operando normal, con restricciones, detenido, en mantenimiento)
 
 3. **Nivel de Detalle Técnico:**
@@ -335,33 +340,7 @@ Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversa
    - **Negrita** para alertas o críticos
    - `Código` para TAGs de equipos (ej: `P-101`, `TK-305`)
 
-Genera el reporte ahora, siendo lo más detallado y técnico posible:
-Considera además complemntar de con los siguientes tópicos que puedas analizar en función de la disponibilida de información:
-
-Análisis Especializados + 1 Síntesis:
-
-📊 Pasada 1: Demoras y QP (quiebres de plan)
-
-Extrae información de quiebres de plan, estima tiempos en demora o pérdidas (siempre que estén disponibles, de lo contrario, no considerar), identifica posibles causas raices y determina impacto.
-
-🔧 Pasada 2: Actividades
-
-Ubica y considera TAGs de equipos, Ubicaciones exactas, Empresas y personal involucrado.
-
-
-🛡️ Pasada 3: Seguridad
-
-Hallazgos clasificados por riesgo; Compromisos con plazos y Acciones pendientes
-
-
-📈 Pasada 4: Producción/KPIs
-
-Considera todo tio pde métricas, disponibilidad de equipos, Parámetros de procesos y consumos respectivos.
-
-
-📝 Síntesis Final:
-
-Combina todo en reporte ejecutivo, Formato profesional, Tablas comparativas y Recomendaciones accionables"""
+Genera el reporte ahora, siendo lo más detallado y técnico posible:"""
 
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -401,6 +380,44 @@ def generate_report_with_gpt4(messages: list, groups_data: dict) -> str:
         
         prompt = f"""{CONTEXTO_MINERA_CENTINELA}
 
+---
+
+**GRUPOS/EMPRESAS MONITOREADOS:**
+{all_grupos_context}
+
+**ACTIVIDAD DEL PERÍODO:**
+{groups_summary_text}
+
+**CONVERSACIONES COMPLETAS:**
+{context}
+
+**INSTRUCCIONES PARA REPORTE TÉCNICO DETALLADO:**
+
+1. **Estructura:**
+   - Resumen Ejecutivo (5-6 líneas)
+   - Análisis Detallado por Empresa
+   - Incidentes y Problemas Operacionales
+   - Trabajos y Mantenimientos
+   - Indicadores y Métricas
+   - Equipos y Sistemas Mencionados
+   - Acciones Pendientes
+
+2. **Nivel de Detalle:**
+   - Incluye TODOS los números (presión, flujo, temperatura, capacidad)
+   - Menciona equipos específicos por TAG
+   - Documenta horarios exactos
+   - Identifica ubicaciones (planta, área, sector)
+   - Registra personal clave mencionado
+
+3. **Archivos Adjuntos:**
+   - [📷 Imagen]: "Se adjuntó evidencia fotográfica"
+   - [🎬 Video]: "Se registró video"
+   - Si hay análisis de IA de imagen/video, úsalo
+
+4. **Formato Markdown profesional con tablas, bullets y código para TAGs**
+
+Genera reporte técnico detallado ahora:"""
+
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -421,23 +438,68 @@ def generate_report_with_gpt4(messages: list, groups_data: dict) -> str:
 # 4. GUARDADO Y EXPORTACIÓN
 # ----------------------------------------------------
 
+# ----------------------------------------------------
+# 4. GUARDADO Y EXPORTACIÓN
+# ----------------------------------------------------
+
+def upload_to_supabase_storage(filepath: str, bucket_name: str = "reportes") -> str:
+    """
+    Sube un archivo a Supabase Storage y retorna la URL pública.
+    
+    Args:
+        filepath: Path local del archivo
+        bucket_name: Nombre del bucket en Supabase
+        
+    Returns:
+        URL pública del archivo o None si falla
+    """
+    try:
+        filename = os.path.basename(filepath)
+        
+        # Leer archivo
+        with open(filepath, 'rb') as f:
+            file_data = f.read()
+        
+        # Subir a Supabase Storage
+        response = supabase.storage.from_(bucket_name).upload(
+            path=f"reportes/{filename}",
+            file=file_data,
+            file_options={"content-type": "application/pdf" if filename.endswith('.pdf') else "text/markdown"}
+        )
+        
+        # Obtener URL pública
+        public_url = supabase.storage.from_(bucket_name).get_public_url(f"reportes/{filename}")
+        
+        print(f"✅ Archivo subido a Supabase Storage: {public_url}")
+        return public_url
+        
+    except Exception as e:
+        print(f"⚠️ No se pudo subir a Supabase Storage: {e}")
+        return None
+
 def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str = "/tmp") -> str:
     """
-    Guarda el reporte en un archivo Markdown con timestamp.
+    Guarda el reporte en formato Markdown y PDF con timestamp.
     
     Args:
         report_content: Contenido del reporte en Markdown
         periodo_texto: Texto descriptivo del período (ej: "Últimas 24 horas")
         output_dir: Directorio donde guardar (default: /tmp para Railway)
+    
+    Returns:
+        Path del archivo PDF generado
     """
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        filename = f"reporte_ejecutivo_{timestamp}.md"
-        filepath = os.path.join(output_dir, filename)
+        filename_base = f"reporte_ejecutivo_{timestamp}"
         
-        # Agregar header al reporte
+        # Paths de archivos
+        md_filepath = os.path.join(output_dir, f"{filename_base}.md")
+        pdf_filepath = os.path.join(output_dir, f"{filename_base}.pdf")
+        
+        # Header del reporte
         header = f"""# Reporte Ejecutivo Diario - Minera Centinela
-**Equipo:** GSdSO (SOPORTE A LA OPERACIÓN)  
+**Equipo:** GSdSO (Gestión de Sistemas de Operación)  
 **Fecha de generación:** {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}  
 **Período analizado:** {periodo_texto}  
 
@@ -447,19 +509,125 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
         
         full_content = header + report_content
         
-        with open(filepath, 'w', encoding='utf-8') as f:
+        # 1. Guardar Markdown
+        with open(md_filepath, 'w', encoding='utf-8') as f:
             f.write(full_content)
+        print(f"✅ Reporte Markdown guardado: {md_filepath}")
         
-        print(f"✅ Reporte guardado en: {filepath}")
+        # 2. Convertir a PDF
+        try:
+            import markdown
+            from weasyprint import HTML, CSS
+            
+            # Convertir Markdown a HTML
+            html_content = markdown.markdown(
+                full_content,
+                extensions=['tables', 'fenced_code', 'codehilite']
+            )
+            
+            # CSS para estilo profesional
+            css_style = CSS(string="""
+                @page {
+                    size: letter;
+                    margin: 2cm;
+                    @top-center {
+                        content: "Minera Centinela - Reporte Ejecutivo";
+                        font-size: 10pt;
+                        color: #666;
+                    }
+                    @bottom-right {
+                        content: "Página " counter(page) " de " counter(pages);
+                        font-size: 9pt;
+                        color: #666;
+                    }
+                }
+                body {
+                    font-family: 'Helvetica', 'Arial', sans-serif;
+                    font-size: 11pt;
+                    line-height: 1.6;
+                    color: #333;
+                }
+                h1 {
+                    color: #1a5490;
+                    border-bottom: 3px solid #1a5490;
+                    padding-bottom: 10px;
+                    margin-top: 20px;
+                }
+                h2 {
+                    color: #2c6ea8;
+                    border-bottom: 2px solid #ccc;
+                    padding-bottom: 5px;
+                    margin-top: 15px;
+                }
+                h3 {
+                    color: #3d7eb5;
+                    margin-top: 12px;
+                }
+                strong {
+                    color: #c0392b;
+                }
+                code {
+                    background-color: #f4f4f4;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-family: 'Courier New', monospace;
+                    color: #e74c3c;
+                }
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin: 15px 0;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #1a5490;
+                    color: white;
+                }
+                tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                blockquote {
+                    border-left: 4px solid #1a5490;
+                    padding-left: 15px;
+                    color: #666;
+                    font-style: italic;
+                }
+            """)
+            
+            # Generar PDF
+            html_doc = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Reporte Ejecutivo - Minera Centinela</title>
+            </head>
+            <body>
+                {html_content}
+            </body>
+            </html>
+            """
+            
+            HTML(string=html_doc).write_pdf(pdf_filepath, stylesheets=[css_style])
+            print(f"✅ Reporte PDF generado: {pdf_filepath}")
+            
+        except Exception as e:
+            print(f"⚠️ No se pudo generar PDF: {e}")
+            print(f"   El reporte está disponible en Markdown")
         
-        # También imprimir el contenido completo en logs para que se vea en Railway
+        # 3. Imprimir contenido completo en logs
         print("\n" + "="*70)
         print("📄 CONTENIDO COMPLETO DEL REPORTE:")
         print("="*70)
         print(full_content)
         print("="*70 + "\n")
         
-        return filepath
+        # Retornar path del PDF si existe, sino del Markdown
+        return pdf_filepath if os.path.exists(pdf_filepath) else md_filepath
         
     except Exception as e:
         print(f"❌ Error guardando reporte: {e}")
@@ -473,7 +641,7 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
 
 def generate_daily_report():
     """
-    Genera reporte ejecutivo técnico.
+    Genera el reporte ejecutivo diario completo.
     """
     print("\n" + "="*70)
     print("📊 GENERADOR DE REPORTE EJECUTIVO DIARIO")
@@ -522,7 +690,13 @@ def generate_daily_report():
     
     # 3. Generar reporte con IA
     print("\n🤖 Generando reporte ejecutivo con IA...")
-    report = generate_report_with_claude(messages, groups_data)
+    
+    if USE_ADVANCED_ANALYSIS and claude_client:
+        print("   🔬 Modo: Análisis Técnico Avanzado (Multi-pasada)")
+        report = generate_advanced_technical_report(messages, groups_data, periodo_texto)
+    else:
+        print("   📝 Modo: Análisis Estándar")
+        report = generate_report_with_claude(messages, groups_data)
     
     if not report:
         print("❌ No se pudo generar el reporte.")
@@ -537,7 +711,18 @@ def generate_daily_report():
     if filepath:
         print(f"\n{'='*70}")
         print("✅ REPORTE COMPLETADO")
-        print(f"📄 Archivo: {filepath}")
+        print(f"📄 Archivo local: {filepath}")
+        
+        # Subir a Supabase Storage
+        if filepath.endswith('.pdf'):
+            print("\n📤 Subiendo PDF a Supabase Storage...")
+            public_url = upload_to_supabase_storage(filepath, bucket_name="reportes")
+            
+            if public_url:
+                print(f"🌐 URL pública: {public_url}")
+                print("\n💡 Para descargar el PDF:")
+                print(f"   {public_url}")
+        
         print("="*70 + "\n")
         
         # Mostrar preview
