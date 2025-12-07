@@ -1,6 +1,6 @@
 """
 Catálogo de Grupos de WhatsApp y sus Empresas Asociadas
-Minera Centinela - Gestión de Sistemas de Operación (GSdSO)
+Minera Centinela - Soporte a la Operación (GSdSO)
 """
 
 GRUPOS_EMPRESAS = {
