@@ -35,7 +35,7 @@ claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_
 REPORT_TIME_WINDOW_HOURS = int(os.environ.get("REPORT_TIME_WINDOW_HOURS", "24"))  # Últimas N horas
 REPORT_START_DATE = os.environ.get("REPORT_START_DATE")  # Formato: "2025-12-01" (opcional)
 REPORT_END_DATE = os.environ.get("REPORT_END_DATE")      # Formato: "2025-12-06" (opcional)
-MAX_MESSAGES_IN_REPORT = 100   # Máximo de mensajes a analizar
+MAX_MESSAGES_IN_REPORT = int(os.environ.get("MAX_MESSAGES_IN_REPORT", "500"))  # Máximo de mensajes (configurable)
 SIMILARITY_THRESHOLD = 0.3     # Umbral mínimo de similitud para búsqueda semántica
 USE_ADVANCED_ANALYSIS = os.environ.get("USE_ADVANCED_ANALYSIS", "true").lower() == "true"  # Análisis multi-pasada
 
@@ -662,6 +662,7 @@ def generate_daily_report():
     
     # 1. Obtener mensajes del período
     print("📥 Obteniendo mensajes del período...")
+    print(f"   📊 Límite configurado: {MAX_MESSAGES_IN_REPORT} mensajes")
     
     if REPORT_START_DATE and REPORT_END_DATE:
         messages = get_messages_by_date_range(
@@ -676,6 +677,11 @@ def generate_daily_report():
         return None
     
     print(f"✅ Se encontraron {len(messages)} mensajes con embeddings.")
+    
+    if len(messages) >= MAX_MESSAGES_IN_REPORT:
+        print(f"⚠️ ADVERTENCIA: Se alcanzó el límite de {MAX_MESSAGES_IN_REPORT} mensajes.")
+        print(f"   Es posible que haya más mensajes en el período que no fueron incluidos.")
+        print(f"   Para analizar más mensajes, aumenta MAX_MESSAGES_IN_REPORT en Railway variables.")
     
     # 2. Agrupar por grupos/empresas
     print("\n🏷️ Agrupando mensajes por grupos/empresas...")
