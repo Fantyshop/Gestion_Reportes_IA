@@ -264,8 +264,8 @@ def generate_report_with_claude(messages: list, groups_data: dict) -> str:
 
 ---
 
-Eres un analista senior de operaciones mineras para Minera Centinela.
-Tu tarea es generar un **Reporte Ejecutivo DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Soporte a la operación).
+Eres un analista senior de operaciones mineras, específicamente para el área de "Soporte a la operación", contextualiza cada detalle.
+Tu objetivo es generar un **Reporte Ejecutivo DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Soporte a la operación).
 
 **GRUPOS/EMPRESAS MONITOREADOS:**
 {all_grupos_context}
@@ -282,7 +282,7 @@ Tu tarea es generar un **Reporte Ejecutivo DETALLADO** basado en las conversacio
    - **Resumen Ejecutivo** (10-12 líneas destacando lo más crítico y relevante)
    - **Análisis Detallado por Empresa/Servicio** (sección dedicada para cada empresa con actividad)
    - **Incidentes y Problemas Operacionales** (detallados con causa, efecto y acciones)
-   - **Trabajos y Mantenimientos Realizados** (con especificaciones técnicas)
+   - **Trabajos y actividades Realizados** (con especificaciones técnicas)
    - **Indicadores y Métricas Operacionales** (si se mencionan números, capacidades, tiempos)
    - **Equipos y Sistemas Mencionados** (identificar equipos específicos por TAG o nombre)
    - **Seguimiento y Acciones Pendientes**
@@ -291,7 +291,7 @@ Tu tarea es generar un **Reporte Ejecutivo DETALLADO** basado en las conversacio
    - Nombre de la empresa y tipo de servicio
    - **Actividades realizadas con detalle técnico:**
      * Equipos específicos mencionados (incluir TAGs, modelos, ubicaciones)
-     * Trabajos de mantenimiento (preventivo, correctivo, predictivo)
+     * Trabajos de mantenimiento y actividadesrealizadas (preventivo, correctivo, predictivo)
      * Parámetros operacionales mencionados (presión, flujo, temperatura, etc.)
      * Horarios y turnos si se mencionan
    - **Problemas o incidentes:**
@@ -303,6 +303,7 @@ Tu tarea es generar un **Reporte Ejecutivo DETALLADO** basado en las conversacio
      * Si hay imágenes adjuntas: mencionar que se documentó visualmente
      * Si hay videos: mencionar que se registró evidencia audiovisual
      * Si hay documentos: mencionar que se adjuntó documentación técnica
+     * Considera la información emn¡bebida de la descripción de elementos como imágenes, videos y/o documentos.
    - **Estado operacional:** (operando normal, con restricciones, detenido, en mantenimiento)
 
 3. **Nivel de Detalle Técnico:**
@@ -360,10 +361,7 @@ Considera todo tio pde métricas, disponibilidad de equipos, Parámetros de proc
 
 📝 Síntesis Final:
 
-Combina todo en reporte ejecutivo
-Formato profesional
-Tablas comparativas
-Recomendaciones accionables"""
+Combina todo en reporte ejecutivo, Formato profesional, Tablas comparativas y Recomendaciones accionables"""
 
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -403,44 +401,6 @@ def generate_report_with_gpt4(messages: list, groups_data: dict) -> str:
         
         prompt = f"""{CONTEXTO_MINERA_CENTINELA}
 
----
-
-**GRUPOS/EMPRESAS MONITOREADOS:**
-{all_grupos_context}
-
-**ACTIVIDAD DEL PERÍODO:**
-{groups_summary_text}
-
-**CONVERSACIONES COMPLETAS:**
-{context}
-
-**INSTRUCCIONES PARA REPORTE TÉCNICO DETALLADO:**
-
-1. **Estructura:**
-   - Resumen Ejecutivo (5-6 líneas)
-   - Análisis Detallado por Empresa
-   - Incidentes y Problemas Operacionales
-   - Trabajos y Mantenimientos
-   - Indicadores y Métricas
-   - Equipos y Sistemas Mencionados
-   - Acciones Pendientes
-
-2. **Nivel de Detalle:**
-   - Incluye TODOS los números (presión, flujo, temperatura, capacidad)
-   - Menciona equipos específicos por TAG
-   - Documenta horarios exactos
-   - Identifica ubicaciones (planta, área, sector)
-   - Registra personal clave mencionado
-
-3. **Archivos Adjuntos:**
-   - [📷 Imagen]: "Se adjuntó evidencia fotográfica"
-   - [🎬 Video]: "Se registró video"
-   - Si hay análisis de IA de imagen/video, úsalo
-
-4. **Formato Markdown profesional con tablas, bullets y código para TAGs**
-
-Genera reporte técnico detallado ahora:"""
-
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -477,7 +437,7 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
         
         # Agregar header al reporte
         header = f"""# Reporte Ejecutivo Diario - Minera Centinela
-**Equipo:** GSdSO (Gestión de Sistemas de Operación)  
+**Equipo:** GSdSO (SOPORTE A LA OPERACIÓN)  
 **Fecha de generación:** {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}  
 **Período analizado:** {periodo_texto}  
 
@@ -513,7 +473,7 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
 
 def generate_daily_report():
     """
-    Genera el reporte ejecutivo diario completo.
+    Genera reporte ejecutivo técnico.
     """
     print("\n" + "="*70)
     print("📊 GENERADOR DE REPORTE EJECUTIVO DIARIO")
