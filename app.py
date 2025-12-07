@@ -264,14 +264,13 @@ def generate_report_with_claude(messages: list, groups_data: dict) -> str:
 
 ---
 
-Eres un analista senior de operaciones mineras para Minera Centinela (Antofagasta Minerals). 
-
-Tu tarea es generar un **Reporte Ejecutivo Diario DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Gestión de Sistemas de Operación) de las últimas 24 horas.
+Eres un analista senior de operaciones mineras para Minera Centinela.
+Tu tarea es generar un **Reporte Ejecutivo DETALLADO** basado en las conversaciones de WhatsApp del equipo de GSdSO (Soporte a la operación).
 
 **GRUPOS/EMPRESAS MONITOREADOS:**
 {all_grupos_context}
 
-**ACTIVIDAD DEL PERÍODO (Últimas 24 horas):**
+**ACTIVIDAD DEL PERÍODO:**
 {groups_summary_text}
 
 **CONVERSACIONES COMPLETAS:**
@@ -280,7 +279,7 @@ Tu tarea es generar un **Reporte Ejecutivo Diario DETALLADO** basado en las conv
 **INSTRUCCIONES PARA EL REPORTE:**
 
 1. **Estructura del Reporte:**
-   - **Resumen Ejecutivo** (5-6 líneas destacando lo más crítico y relevante)
+   - **Resumen Ejecutivo** (10-12 líneas destacando lo más crítico y relevante)
    - **Análisis Detallado por Empresa/Servicio** (sección dedicada para cada empresa con actividad)
    - **Incidentes y Problemas Operacionales** (detallados con causa, efecto y acciones)
    - **Trabajos y Mantenimientos Realizados** (con especificaciones técnicas)
@@ -335,7 +334,36 @@ Tu tarea es generar un **Reporte Ejecutivo Diario DETALLADO** basado en las conv
    - **Negrita** para alertas o críticos
    - `Código` para TAGs de equipos (ej: `P-101`, `TK-305`)
 
-Genera el reporte ahora, siendo lo más detallado y técnico posible:"""
+Genera el reporte ahora, siendo lo más detallado y técnico posible:
+Considera además complemntar de con los siguientes tópicos que puedas analizar en función de la disponibilida de información:
+
+Análisis Especializados + 1 Síntesis:
+
+📊 Pasada 1: Demoras y QP (quiebres de plan)
+
+Extrae información de quiebres de plan, estima tiempos en demora o pérdidas (siempre que estén disponibles, de lo contrario, no considerar), identifica posibles causas raices y determina impacto.
+
+🔧 Pasada 2: Actividades
+
+Ubica y considera TAGs de equipos, Ubicaciones exactas, Empresas y personal involucrado.
+
+
+🛡️ Pasada 3: Seguridad
+
+Hallazgos clasificados por riesgo; Compromisos con plazos y Acciones pendientes
+
+
+📈 Pasada 4: Producción/KPIs
+
+Considera todo tio pde métricas, disponibilidad de equipos, Parámetros de procesos y consumos respectivos.
+
+
+📝 Síntesis Final:
+
+Combina todo en reporte ejecutivo
+Formato profesional
+Tablas comparativas
+Recomendaciones accionables"""
 
         response = claude_client.messages.create(
             model="claude-sonnet-4-20250514",
