@@ -85,45 +85,16 @@ Analiza las siguientes conversaciones y extrae TODA la información sobre:
    - Impacto en plan original
 
 **FORMATO DE SALIDA (JSON):**
-```json
-{
-  "quiebres_plan": [
-    {
-      "qp_numero": "QP-123",
-      "fecha": "2025-12-03",
-      "area": "Hidrometalurgia",
-      "equipo": "Bomba P-101",
-      "razon": "Falla imprevista sello mecánico",
-      "demora_horas": 8,
-      "impacto": "Crítico - Detención de planta",
-      "evidencia": "Mensaje de Juan a las 14:30"
-    }
-  ],
-  "demoras": [
-    {
-      "actividad": "Montaje andamio SPS-502",
-      "fecha": "2025-12-04",
-      "demora_horas": 4,
-      "causa": "Espera por grúa",
-      "responsable": "FTF",
-      "impacto": "Bajo - No afectó ruta crítica"
-    }
-  ],
-  "emergentes": [
-    {
-      "actividad": "Reparación urgente línea eléctrica",
-      "prioridad": "Alta",
-      "desplazo_a": "Mantenimiento preventivo transformador",
-      "ejecutor": "ELECMAIN"
-    }
-  ]
-}
-```
+
+Debes responder con un objeto JSON con la siguiente estructura:
+- quiebres_plan: array de objetos con qp_numero, fecha, area, equipo, razon, demora_horas, impacto, evidencia
+- demoras: array de objetos con actividad, fecha, demora_horas, causa, responsable, impacto
+- emergentes: array de objetos con actividad, prioridad, desplazo_a, ejecutor
 
 Conversaciones:
 {conversaciones}
 
-Responde SOLO con el JSON, sin explicaciones adicionales."""
+Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de código markdown."""
 
 PROMPT_ANALISIS_ACTIVIDADES = """Eres un ingeniero de mantenimiento experto en minería.
 
@@ -157,47 +128,19 @@ Analiza y extrae TODAS las actividades de mantenimiento y operación mencionadas
    - % avance si se menciona
    - Próximos pasos
 
-**FORMATO DE SALIDA (JSON):**
-```json
-{
-  "actividades": [
-    {
-      "id": "ACT-001",
-      "tipo": "Mantenimiento Preventivo",
-      "descripcion": "Cambio de rodamientos bomba centrífuga",
-      "equipo": {
-        "tag": "P-101",
-        "nombre": "Bomba alimentación SX",
-        "sistema": "Hidrometalurgia"
-      },
-      "ubicacion": {
-        "planta": "Hidrometalurgia",
-        "area": "Sala bombas PLS",
-        "nivel": "Piso 0"
-      },
-      "ejecutor": {
-        "empresa": "ATLAS COPCO",
-        "personal": 2,
-        "supervisor": "Pedro Bravo"
-      },
-      "tiempos": {
-        "inicio_programado": "2025-12-03 08:00",
-        "inicio_real": "2025-12-03 09:30",
-        "termino_programado": "2025-12-03 16:00",
-        "termino_real": "2025-12-03 17:45",
-        "demora_horas": 1.75
-      },
-      "estado": "Completado",
-      "observaciones": "Demora por espera de grúa"
-    }
-  ]
-}
-```
+**FORMATO DE SALIDA:**
+Responde con un objeto JSON que contenga un array "actividades" con objetos que tengan:
+- id, tipo, descripcion
+- equipo (con tag, nombre, sistema)
+- ubicacion (planta, area, nivel)
+- ejecutor (empresa, personal, supervisor)
+- tiempos (inicio_programado, inicio_real, termino_programado, termino_real, demora_horas)
+- estado, observaciones
 
 Conversaciones:
 {conversaciones}
 
-Responde SOLO con el JSON, sin explicaciones adicionales."""
+Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de código markdown."""
 
 PROMPT_ANALISIS_SEGURIDAD = """Eres un especialista en seguridad y prevención de riesgos en minería.
 
@@ -235,61 +178,17 @@ Analiza las conversaciones y extrae TODA información relacionada con seguridad:
    - Plazos
    - Estado
 
-**FORMATO DE SALIDA (JSON):**
-```json
-{
-  "incidentes": [
-    {
-      "fecha": "2025-12-03",
-      "hora": "14:30",
-      "tipo": "Accidente leve",
-      "descripcion": "Trabajador se golpea mano con herramienta",
-      "afectado": "Juan Geraldo Rocco",
-      "empresa": "FTF",
-      "lesion": "Contusión mano derecha",
-      "derivacion": "Policlínico",
-      "causa_inmediata": "Pérdida de equilibrio",
-      "causa_raiz": "A investigar",
-      "dias_perdidos": 0
-    }
-  ],
-  "hallazgos": [
-    {
-      "fecha": "2025-12-04",
-      "tipo": "Condición insegura",
-      "descripcion": "Barandas de andamio sin instalar completamente",
-      "ubicacion": "SPS-502",
-      "severidad": "Alta",
-      "riesgo": "Caída de altura",
-      "detectado_por": "Supervisor",
-      "accion_inmediata": "Detención de trabajo hasta corrección",
-      "estado": "Corregido"
-    }
-  ],
-  "permisos": [
-    {
-      "tipo": "SPCI",
-      "actividad": "Trabajo en altura > 1.8m",
-      "ubicacion": "Chancador Primario",
-      "estado": "Vigente",
-      "validez": "2025-12-03 al 2025-12-05"
-    }
-  ],
-  "compromisos": [
-    {
-      "accion": "Instalar señalización adicional en área Oxe",
-      "responsable": "FTF - Supervisor de turno",
-      "plazo": "2025-12-06",
-      "estado": "Pendiente"
-    }
-  ]
-}
-```
+**FORMATO DE SALIDA:**
+Responde con un objeto JSON que contenga:
+- incidentes: array con fecha, hora, tipo, descripcion, afectado, empresa, lesion, derivacion, causa_inmediata, causa_raiz, dias_perdidos
+- hallazgos: array con fecha, tipo, descripcion, ubicacion, severidad, riesgo, detectado_por, accion_inmediata, estado
+- permisos: array con tipo, actividad, ubicacion, estado, validez
+- compromisos: array con accion, responsable, plazo, estado
 
 Conversaciones:
 {conversaciones}
 
-Responde SOLO con el JSON, sin explicaciones adicionales."""
+Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de código markdown."""
 
 PROMPT_ANALISIS_PRODUCCION_KPI = """Eres un ingeniero de procesos experto en KPIs operacionales mineros.
 
@@ -331,61 +230,17 @@ Extrae TODOS los indicadores, métricas y datos de producción mencionados:
    - Detenido
    - En espera
 
-**FORMATO DE SALIDA (JSON):**
-```json
-{
-  "produccion": [
-    {
-      "equipo": "Planta RO Moly",
-      "parametro": "Producción permeado",
-      "valor": 145,
-      "unidad": "m³/h",
-      "target": 150,
-      "desviacion": -3.3,
-      "desviacion_porcentaje": -3.3,
-      "fecha": "2025-12-03",
-      "turno": "Día"
-    }
-  ],
-  "parametros_proceso": [
-    {
-      "equipo": "Bomba P-201",
-      "parametro": "Presión descarga",
-      "valor": 42.5,
-      "unidad": "bar",
-      "rango_normal": "40-45",
-      "estado": "Normal",
-      "fecha": "2025-12-03 14:00"
-    }
-  ],
-  "disponibilidad": [
-    {
-      "equipo": "Chancador Primario",
-      "periodo": "Semana 48",
-      "tiempo_operativo_h": 156,
-      "tiempo_detenido_h": 12,
-      "disponibilidad_porcentaje": 92.9,
-      "target_porcentaje": 95,
-      "causas_detencion": ["Mantenimiento preventivo: 8h", "Falla eléctrica: 4h"]
-    }
-  ],
-  "consumos": [
-    {
-      "area": "Concentradora",
-      "parametro": "Consumo energía",
-      "valor": 12.5,
-      "unidad": "MW",
-      "periodo": "Promedio 24h",
-      "fecha": "2025-12-03"
-    }
-  ]
-}
-```
+**FORMATO DE SALIDA:**
+Responde con un objeto JSON que contenga:
+- produccion: array con equipo, parametro, valor, unidad, target, desviacion, desviacion_porcentaje, fecha, turno
+- parametros_proceso: array con equipo, parametro, valor, unidad, rango_normal, estado, fecha
+- disponibilidad: array con equipo, periodo, tiempo_operativo_h, tiempo_detenido_h, disponibilidad_porcentaje, target_porcentaje, causas_detencion
+- consumos: array con area, parametro, valor, unidad, periodo, fecha
 
 Conversaciones:
 {conversaciones}
 
-Responde SOLO con el JSON, sin explicaciones adicionales."""
+Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de código markdown."""
 
 # ----------------------------------------------------
 # PROMPT FINAL DE SÍNTESIS
@@ -393,7 +248,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
 
 PROMPT_SINTESIS_FINAL = """Eres el Jefe de Operaciones de Minera Centinela con 20 años de experiencia en minería de cobre.
 
-Has recibido análisis detallados de las últimas {periodo} horas de operación. Tu tarea es sintetizar esta información en un **Reporte Ejecutivo Técnico** de clase mundial.
+Has recibido análisis detallados de las últimas {periodo} de operación. Tu tarea es sintetizar esta información en un **Reporte Ejecutivo Técnico** de clase mundial.
 
 **DATOS DE ENTRADA:**
 
@@ -407,162 +262,110 @@ Has recibido análisis detallados de las últimas {periodo} horas de operación.
 
 **ESTRUCTURA DEL REPORTE:**
 
+Genera un reporte en Markdown con la siguiente estructura:
+
 # Reporte Ejecutivo Técnico - Minera Centinela
 **Período:** {periodo_texto}  
 **Generado:** {fecha_generacion}
 
 ## 1. RESUMEN EJECUTIVO
-- Situación operacional general (2-3 párrafos)
-- Principales logros y desafíos
-- Decisiones críticas requeridas
+Situación operacional general (2-3 párrafos), principales logros y desafíos, decisiones críticas requeridas.
 
 ## 2. ANÁLISIS DE CUMPLIMIENTO DE PLAN
 
 ### 2.1 Quiebres de Plan (QP)
-Para cada QP identificado:
-- **QP #**: Número
-- **Equipo/Sistema**: TAG y descripción
-- **Impacto**: Horas perdidas, producción afectada, costos estimados
-- **Causa Raíz**: Análisis técnico
-- **Acción Correctiva**: Definida y responsable
+Para cada QP identificado en el análisis, incluye:
+- Número de QP
+- Equipo/Sistema con TAG
+- Horas perdidas e impacto
+- Causa raíz técnica
+- Acción correctiva con responsable
 
 ### 2.2 Demoras Operacionales
-Tabla resumen:
-| Actividad | Demora (h) | Causa | Impacto | Responsable |
-|-----------|------------|-------|---------|-------------|
-| ... | ... | ... | ... | ... |
-
-**Análisis de causas recurrentes**
+Crear tabla resumen de demoras con: Actividad, Demora (h), Causa, Impacto, Responsable
+Incluir análisis de causas recurrentes.
 
 ### 2.3 Actividades Emergentes
-- Lista de trabajos no programados ejecutados
-- Justificación de priorización
-- Impacto en plan maestro
+Listar trabajos no programados, justificación e impacto en plan maestro.
 
 ## 3. EJECUCIÓN DE ACTIVIDADES
 
 ### Por Empresa Contratista:
-
-#### AMECO - Equipos de Izaje
-- **Trabajos ejecutados**: Lista detallada con ubicaciones
-- **Equipos utilizados**: TAGs y horas de uso
-- **Problemas/Hallazgos**: Si los hubo
-- **Estado**: % completado
-
-#### FTF - Andamiaje
-[Mismo formato]
-
-#### ELEVEN - Equipos Apoyo
-[Mismo formato]
-
-#### ATLAS COPCO - Mantenimiento Especializado
-[Mismo formato]
-
-[...otras empresas...]
+Para cada empresa (AMECO, FTF, ELEVEN, ATLAS COPCO, etc):
+- Trabajos ejecutados con ubicaciones específicas
+- Equipos utilizados con TAGs
+- Problemas/Hallazgos
+- Estado de avance
 
 ### Matriz de Actividades por Área:
-| Área | Actividades | Horas-Hombre | Empresa | Estado |
-|------|-------------|--------------|---------|--------|
-| ... | ... | ... | ... | ... |
+Tabla con: Área, Actividades, Horas-Hombre, Empresa, Estado
 
 ## 4. SEGURIDAD Y MEDIO AMBIENTE
 
 ### 4.1 Incidentes
-Para cada incidente:
-- Descripción técnica completa
-- Análisis de causas (5 Por Qués / Espina de Pescado)
-- Acciones correctivas/preventivas
-- Responsables y plazos
+Para cada incidente: descripción técnica, análisis de causas, acciones correctivas, responsables y plazos.
 
 ### 4.2 Hallazgos de Seguridad
-- Condiciones inseguras detectadas
-- Nivel de riesgo (Alto/Medio/Bajo)
-- Acciones tomadas
+Listar condiciones inseguras detectadas, nivel de riesgo, acciones tomadas.
 
 ### 4.3 Compromisos Pendientes
-Tabla de seguimiento:
-| Compromiso | Responsable | Plazo | Estado |
-|------------|-------------|-------|--------|
-| ... | ... | ... | ... |
+Tabla: Compromiso, Responsable, Plazo, Estado
 
-### 4.4 Indicador: Frecuencia de incidentes
-- Cálculo: (N° incidentes / HH trabajadas) × 1,000,000
-- Tendencia vs semanas anteriores
+### 4.4 Indicadores
+Calcular frecuencia de incidentes y tendencia.
 
 ## 5. INDICADORES OPERACIONALES
 
 ### 5.1 Producción
-Tabla de KPIs principales:
-| Indicador | Real | Target | Desv. | Estado |
-|-----------|------|--------|-------|--------|
-| Tonelaje concentradora | ... | ... | ... | 🔴/🟡/🟢 |
-| Producción cátodos | ... | ... | ... | ... |
-| Caudal plantas RO | ... | ... | ... | ... |
+Tabla de KPIs: Indicador, Real, Target, Desviación, Estado (🔴/🟡/🟢)
 
 ### 5.2 Disponibilidad de Equipos Críticos
-| Equipo | Tag | Disp. Real | Disp. Target | Causa principal detención |
-|--------|-----|------------|--------------|---------------------------|
-| ... | ... | ... | ... | ... |
+Tabla: Equipo, TAG, Disponibilidad Real vs Target, Causa principal detención
 
 ### 5.3 Parámetros Fuera de Rango
-- Lista de variables que excedieron límites operacionales
-- Impacto en proceso
-- Acciones tomadas
+Listar variables que excedieron límites, impacto y acciones.
 
 ## 6. ANÁLISIS DE TENDENCIAS
 
 ### 6.1 Equipos con Fallas Recurrentes
-- Identificar equipos con >2 fallas en el período
-- Analizar patrón (horario, condiciones, operador)
-- Recomendar análisis RCA (Root Cause Analysis)
+Identificar equipos con múltiples fallas, analizar patrón.
 
 ### 6.2 Áreas con Mayor Actividad
-- Ranking de áreas por horas-hombre
-- Justificación (plan vs emergencias)
+Ranking por horas-hombre, justificación.
 
 ## 7. RECOMENDACIONES Y ACCIONES
 
 ### Corto Plazo (1-7 días)
-1. [Acción concreta con responsable y plazo]
-2. ...
+Lista numerada de acciones concretas con responsable y plazo.
 
 ### Mediano Plazo (1-4 semanas)
-1. [Mejora de proceso/sistema]
-2. ...
+Mejoras de proceso/sistema.
 
 ### Largo Plazo (>1 mes)
-1. [Inversión/proyecto]
-2. ...
+Inversiones/proyectos.
 
 ## 8. ANEXOS
 
 ### Anexo A: Evidencia Fotográfica/Video
-- Lista de archivos adjuntos con descripción
+Lista de archivos adjuntos mencionados en conversaciones.
 
-### Anexo B: Detalle Técnico de Trabajos Críticos
-- Procedimientos ejecutados
-- Especificaciones técnicas
+### Anexo B: Detalle Técnico
+Procedimientos y especificaciones técnicas relevantes.
 
 ---
 
 **INSTRUCCIONES DE FORMATO:**
+- Usa Markdown profesional con tablas
+- Negrita para alertas críticas
+- Código para TAGs de equipos (ejemplo: `P-101`)
+- Emojis para estados: 🔴 Crítico, 🟡 Advertencia, 🟢 OK
+- Números exactos siempre que estén disponibles
+- Si falta información, indicar "No reportado"
+- Prioriza información accionable
 
-- Usa Markdown profesional
-- Tablas para datos comparativos
-- **Negrita** para alertas críticas
-- `Código` para TAGs de equipos
-- 🔴 Rojo para crítico, 🟡 Amarillo para advertencia, 🟢 Verde para OK
-- Incluye números exactos siempre que estén disponibles
-- Si falta información, indicar "No reportado" en lugar de omitir
-- Prioriza información accionable sobre descripción genérica
+**TONO:** Técnico, directo, basado en datos, orientado a toma de decisiones.
 
-**TONO:**
-- Técnico pero ejecutivo
-- Directo y basado en datos
-- Orientado a la toma de decisiones
-- Sin ambigüedades
-
-Genera el reporte ahora:"""
+Genera el reporte completo ahora:"""
 
 def generate_advanced_technical_report(messages: list, groups_data: dict, periodo_texto: str) -> str:
     """
