@@ -540,7 +540,23 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
             f.write(full_content)
         print(f"✅ Reporte Markdown guardado: {md_filepath}")
         
-        # 2. Convertir a PDF
+        # 2. Convertir a HTML visual
+        try:
+            from markdown_to_html_converter import convert_report_to_html
+            
+            html_content = convert_report_to_html(full_content, periodo_texto)
+            html_filepath = os.path.join(output_dir, f"{filename_base}.html")
+            
+            with open(html_filepath, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            print(f"✅ Reporte HTML generado: {html_filepath}")
+            
+        except Exception as e:
+            print(f"⚠️ No se pudo generar HTML: {e}")
+            html_filepath = None
+        
+        # 3. Convertir a PDF (desde HTML si existe, sino desde Markdown)
         try:
             import markdown
             from weasyprint import HTML, CSS
@@ -754,15 +770,38 @@ def generate_daily_report():
         print("✅ REPORTE COMPLETADO")
         print(f"📄 Archivo local: {filepath}")
         
-        # Subir a Supabase Storage
-        if filepath.endswith('.pdf'):
-            print("\n📤 Subiendo PDF a Supabase Storage...")
-            public_url = upload_to_supabase_storage(filepath, bucket_name="reportes")
-            
-            if public_url:
-                print(f"🌐 URL pública: {public_url}")
-                print("\n💡 Para descargar el PDF:")
-                print(f"   {public_url}")
+        # Subir archivos a Supabase Storage
+        print("\n📤 Subiendo reportes a Supabase Storage...")
+        
+        # Buscar archivos generados
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        base_path = os.path.join("/tmp", f"reporte_ejecutivo_{timestamp}")
+        
+        html_file = f"{base_path}.html"
+        pdf_file = f"{base_path}.pdf"
+        
+        urls = {}
+        
+        # Subir HTML si existe
+        if os.path.exists(html_file):
+            html_url = upload_to_supabase_storage(html_file, bucket_name="reportes")
+            if html_url:
+                urls['html'] = html_url
+                print(f"   ✅ HTML: {html_url}")
+        
+        # Subir PDF si existe
+        if os.path.exists(pdf_file):
+            pdf_url = upload_to_supabase_storage(pdf_file, bucket_name="reportes")
+            if pdf_url:
+                urls['pdf'] = pdf_url
+                print(f"   ✅ PDF: {pdf_url}")
+        
+        if urls:
+            print("\n💡 Reportes disponibles:")
+            if 'html' in urls:
+                print(f"   📊 Visualizar (interactivo): {urls['html']}")
+            if 'pdf' in urls:
+                print(f"   📄 Descargar (PDF): {urls['pdf']}")
         
         print("="*70 + "\n")
         
