@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python311", "libGL", "glib", "libglvnd", "cairo", "pango", "gdk-pixbuf", "libffi", "fontconfig"]
+
+[phases.install]
+cmds = ["pip install --no-cache-dir -r requirements.txt"]
+
+[start]
+cmd = "python app.py"
