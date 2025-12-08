@@ -290,15 +290,51 @@ Listar trabajos no programados, justificación e impacto en plan maestro.
 
 ## 3. EJECUCIÓN DE ACTIVIDADES
 
-### Por Empresa Contratista:
-Para cada empresa (AMECO, FTF, ELEVEN, ATLAS COPCO, etc):
+### Por Superintendencia y Empresa:
+
+**IMPORTANTE**: Organiza las actividades jerárquicamente:
+1. Primero por Superintendencia (SSTT o IIEE)
+2. Luego por Empresa dentro de cada superintendencia
+
+#### SUPERINTENDENCIA: SERVICIOS TRANSVERSALES (SSTT)
+
+##### AMECO - Equipos de Izaje
 - Trabajos ejecutados con ubicaciones específicas
 - Equipos utilizados con TAGs
 - Problemas/Hallazgos
 - Estado de avance
 
-### Matriz de Actividades por Área:
-Tabla con: Área, Actividades, Horas-Hombre, Empresa, Estado
+##### FTF - Andamiaje
+[Mismo formato]
+
+##### ELEVEN - Equipos Apoyo
+[Mismo formato]
+
+##### ATLAS COPCO - Mantenimiento Especializado
+[Mismo formato]
+
+##### EQUANS - Climatización
+[Mismo formato]
+
+#### SUPERINTENDENCIA: INSUMOS ESTRATÉGICOS (IIEE)
+
+##### SERVILOG - Plantas RO
+- Trabajos ejecutados con ubicaciones específicas
+- Parámetros operacionales (producción, presión, temperatura)
+- Problemas/Hallazgos
+- Estado de avance
+
+##### ELECMAIN - Mantenimiento Eléctrico AT
+[Mismo formato]
+
+### Matriz de Actividades por Superintendencia:
+
+| Superintendencia | Empresa | Actividades | Mensajes | Horas-Hombre Est. | Estado |
+|------------------|---------|-------------|----------|-------------------|--------|
+| SSTT | AMECO | ... | ... | ... | ... |
+| SSTT | FTF | ... | ... | ... | ... |
+| IIEE | SERVILOG | ... | ... | ... | ... |
+| IIEE | ELECMAIN | ... | ... | ... | ... |
 
 ## 4. SEGURIDAD Y MEDIO AMBIENTE
 
