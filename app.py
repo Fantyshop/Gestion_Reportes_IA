@@ -188,6 +188,32 @@ def aggregate_messages_by_topic(messages: list) -> dict:
     
     return messages_by_group
 
+def aggregate_by_superintendencia(groups_data: dict) -> dict:
+    """
+    Agrupa los datos de empresas por superintendencia.
+    
+    Args:
+        groups_data: Diccionario con datos agrupados por empresa
+        
+    Returns:
+        Dict con estructura: {superintendencia: {grupo_id: data}}
+    """
+    from grupos_config import get_superintendencia_name
+    
+    by_superintendencia = {
+        "SSTT": {"nombre": "Servicios Transversales", "grupos": {}},
+        "IIEE": {"nombre": "Insumos Estratégicos", "grupos": {}}
+    }
+    
+    for grupo_id, data in groups_data.items():
+        info = data.get('info')
+        if info:
+            si = info.get('superintendencia', 'SIN_CLASIFICAR')
+            if si in by_superintendencia:
+                by_superintendencia[si]['grupos'][grupo_id] = data
+    
+    return by_superintendencia
+
 # ----------------------------------------------------
 # 3. GENERACIÓN DE REPORTE CON IA
 # ----------------------------------------------------
@@ -687,12 +713,21 @@ def generate_daily_report():
     print("\n🏷️ Agrupando mensajes por grupos/empresas...")
     groups_data = aggregate_messages_by_topic(messages)
     
-    for grupo_id, data in groups_data.items():
-        info = data['info']
-        if info:
-            print(f"   • {info['nombre']} ({info['empresa']}): {data['count']} mensajes")
-        else:
-            print(f"   • Grupo ID {grupo_id}: {data['count']} mensajes")
+    # Agrupar por superintendencia
+    by_superintendencia = aggregate_by_superintendencia(groups_data)
+    
+    print("\n📊 Distribución por Superintendencia:")
+    for si_codigo, si_data in by_superintendencia.items():
+        si_nombre = si_data['nombre']
+        total_mensajes_si = sum(data['count'] for data in si_data['grupos'].values())
+        print(f"\n   🏢 {si_nombre} ({si_codigo}): {total_mensajes_si} mensajes")
+        
+        for grupo_id, data in si_data['grupos'].items():
+            info = data['info']
+            if info:
+                print(f"      • {info['empresa']}: {data['count']} mensajes")
+            else:
+                print(f"      • Grupo ID {grupo_id}: {data['count']} mensajes")
     
     # 3. Generar reporte con IA
     print("\n🤖 Generando reporte ejecutivo con IA...")
