@@ -1,12 +1,13 @@
 """
 Catálogo de Grupos de WhatsApp y sus Empresas Asociadas
-Minera Centinela - Soporte a la Operación (GSdSO)
+Minera Centinela - Gestión de Sistemas de Operación (GSdSO)
 """
 
 GRUPOS_EMPRESAS = {
     1: {
         "nombre": "Operativa AMECO - CENT",
         "empresa": "AMECO",
+        "superintendencia": "SSTT",  # Servicios Transversales
         "servicios": [
             "Arriendo de grúas de izaje",
             "Equipos de apoyo: grúas horquillas",
@@ -20,6 +21,7 @@ GRUPOS_EMPRESAS = {
     2: {
         "nombre": "FTF - CENTINELA FIJO-SPOT",
         "empresa": "FTF",
+        "superintendencia": "SSTT",  # Servicios Transversales
         "servicios": [
             "Andamios",
             "Montaje de estructuras",
@@ -33,6 +35,7 @@ GRUPOS_EMPRESAS = {
     3: {
         "nombre": "Operativa ELEVEN - CENT",
         "empresa": "ELEVEN",
+        "superintendencia": "SSTT",  # Servicios Transversales
         "servicios": [
             "Arriendo de equipos de apoyo menor",
             "Luminarias",
@@ -46,6 +49,7 @@ GRUPOS_EMPRESAS = {
     4: {
         "nombre": "Información Atlas Copco",
         "empresa": "ATLAS COPCO",
+        "superintendencia": "SSTT",  # Servicios Transversales
         "servicios": [
             "Mantenimiento de compresores",
             "Mantenimiento de generadores",
@@ -58,6 +62,7 @@ GRUPOS_EMPRESAS = {
     5: {
         "nombre": "Plantas RO",
         "empresa": "SERVILOG",
+        "superintendencia": "IIEE",  # Insumos Estratégicos
         "servicios": [
             "Operación de plantas de osmosis inversa",
             "Mantenimiento de sistemas RO",
@@ -71,6 +76,7 @@ GRUPOS_EMPRESAS = {
     6: {
         "nombre": "Info Equans",
         "empresa": "EQUANS",
+        "superintendencia": "SSTT",  # Servicios Transversales
         "servicios": [
             "Mantenimiento de aire acondicionado",
             "Sistemas de refrigeración",
@@ -84,6 +90,7 @@ GRUPOS_EMPRESAS = {
     7: {
         "nombre": "Contrato Lavado CSP 1097",
         "empresa": "ELECMAIN",
+        "superintendencia": "IIEE",  # Insumos Estratégicos
         "servicios": [
             "Mantenimiento de líneas eléctricas alta tensión",
             "Lavado de líneas AT",
@@ -162,6 +169,57 @@ def get_all_empresas() -> list:
         Lista de nombres de empresas
     """
     return list(set([info['empresa'] for info in GRUPOS_EMPRESAS.values()]))
+
+def get_grupos_by_superintendencia(superintendencia: str) -> dict:
+    """
+    Obtiene todos los grupos pertenecientes a una superintendencia.
+    
+    Args:
+        superintendencia: "SSTT" o "IIEE"
+        
+    Returns:
+        Diccionario con grupos filtrados
+    """
+    return {
+        grupo_id: info 
+        for grupo_id, info in GRUPOS_EMPRESAS.items() 
+        if info.get('superintendencia') == superintendencia
+    }
+
+def get_all_superintendencias() -> dict:
+    """
+    Retorna diccionario con todas las superintendencias y sus grupos.
+    
+    Returns:
+        Dict con estructura: {superintendencia: {grupo_id: info}}
+    """
+    superintendencias = {}
+    
+    for grupo_id, info in GRUPOS_EMPRESAS.items():
+        si = info.get('superintendencia', 'SIN_CLASIFICAR')
+        
+        if si not in superintendencias:
+            superintendencias[si] = {}
+        
+        superintendencias[si][grupo_id] = info
+    
+    return superintendencias
+
+def get_superintendencia_name(codigo: str) -> str:
+    """
+    Obtiene el nombre completo de la superintendencia.
+    
+    Args:
+        codigo: "SSTT" o "IIEE"
+        
+    Returns:
+        Nombre completo de la superintendencia
+    """
+    nombres = {
+        "SSTT": "Servicios Transversales",
+        "IIEE": "Insumos Estratégicos"
+    }
+    return nombres.get(codigo, codigo)
 
 def get_summary_all_grupos() -> str:
     """
