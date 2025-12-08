@@ -540,7 +540,8 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
             f.write(full_content)
         print(f"✅ Reporte Markdown guardado: {md_filepath}")
         
-        # 2. Convertir a HTML visual
+        # 2. Convertir a HTML visual (opcional)
+        html_filepath = None
         try:
             from markdown_to_html_converter import convert_report_to_html
             
@@ -552,11 +553,34 @@ def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str
             
             print(f"✅ Reporte HTML generado: {html_filepath}")
             
+        except ImportError as e:
+            print(f"⚠️ No se pudo importar markdown_to_html_converter: {e}")
         except Exception as e:
             print(f"⚠️ No se pudo generar HTML: {e}")
-            html_filepath = None
         
-        # 3. Convertir a PDF (desde HTML si existe, sino desde Markdown)
+        # 3. Convertir a PDF (opcional, requiere WeasyPrint)
+        pdf_filepath = os.path.join(output_dir, f"{filename_base}.pdf")
+        try:
+            # Intentar generar PDF desde HTML o Markdown
+            if html_filepath and os.path.exists(html_filepath):
+                print("   📄 Intentando generar PDF desde HTML...")
+                from weasyprint import HTML
+                HTML(html_filepath).write_pdf(pdf_filepath)
+                print(f"✅ Reporte PDF generado: {pdf_filepath}")
+            else:
+                print("   ⚠️ HTML no disponible, saltando generación de PDF")
+                pdf_filepath = None
+                
+        except ImportError:
+            print("   ⚠️ WeasyPrint no está disponible. Saltando generación de PDF.")
+            print("   💡 Para habilitar PDF, instala: apt-get install -y libpango-1.0-0 libpangocairo-1.0-0")
+            pdf_filepath = None
+        except Exception as e:
+            print(f"   ⚠️ No se pudo generar PDF: {e}")
+            pdf_filepath = None
+        
+        # Retornar el archivo principal (Markdown siempre existe)
+        return md_filepath
         try:
             import markdown
             from weasyprint import HTML, CSS
@@ -773,24 +797,33 @@ def generate_daily_report():
         # Subir archivos a Supabase Storage
         print("\n📤 Subiendo reportes a Supabase Storage...")
         
-        # Buscar archivos generados
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        base_path = os.path.join("/tmp", f"reporte_ejecutivo_{timestamp}")
+        # Detectar archivos generados buscando por timestamp aproximado
+        output_dir = "/tmp"
+        import glob
         
-        html_file = f"{base_path}.html"
-        pdf_file = f"{base_path}.pdf"
+        # Buscar archivos recientes (últimos 5 minutos)
+        recent_time = datetime.now().timestamp() - 300  # 5 minutos
+        
+        html_files = glob.glob(os.path.join(output_dir, "reporte_ejecutivo_*.html"))
+        pdf_files = glob.glob(os.path.join(output_dir, "reporte_ejecutivo_*.pdf"))
+        
+        # Filtrar solo archivos recientes
+        html_files = [f for f in html_files if os.path.getmtime(f) > recent_time]
+        pdf_files = [f for f in pdf_files if os.path.getmtime(f) > recent_time]
         
         urls = {}
         
-        # Subir HTML si existe
-        if os.path.exists(html_file):
+        # Subir HTML más reciente si existe
+        if html_files:
+            html_file = max(html_files, key=os.path.getmtime)  # Más reciente
             html_url = upload_to_supabase_storage(html_file, bucket_name="reportes")
             if html_url:
                 urls['html'] = html_url
                 print(f"   ✅ HTML: {html_url}")
         
-        # Subir PDF si existe
-        if os.path.exists(pdf_file):
+        # Subir PDF más reciente si existe
+        if pdf_files:
+            pdf_file = max(pdf_files, key=os.path.getmtime)  # Más reciente
             pdf_url = upload_to_supabase_storage(pdf_file, bucket_name="reportes")
             if pdf_url:
                 urls['pdf'] = pdf_url
@@ -802,6 +835,8 @@ def generate_daily_report():
                 print(f"   📊 Visualizar (interactivo): {urls['html']}")
             if 'pdf' in urls:
                 print(f"   📄 Descargar (PDF): {urls['pdf']}")
+        else:
+            print("   ℹ️ Solo Markdown disponible (HTML/PDF requieren dependencias adicionales)")
         
         print("="*70 + "\n")
         
