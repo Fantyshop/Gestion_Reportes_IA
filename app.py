@@ -482,25 +482,39 @@ def upload_to_supabase_storage(filepath: str, bucket_name: str = "reportes") -> 
     try:
         filename = os.path.basename(filepath)
         
+        # Detectar content-type según extensión
+        if filename.endswith('.html'):
+            content_type = "text/html; charset=utf-8"
+        elif filename.endswith('.pdf'):
+            content_type = "application/pdf"
+        elif filename.endswith('.md'):
+            content_type = "text/markdown; charset=utf-8"
+        else:
+            content_type = "application/octet-stream"
+        
         # Leer archivo
         with open(filepath, 'rb') as f:
             file_data = f.read()
         
         # Subir a Supabase Storage
         response = supabase.storage.from_(bucket_name).upload(
-            path=f"reportes/{filename}",
+            path=filename,  # Sin prefijo "reportes/" - el nombre del bucket ya está en bucket_name
             file=file_data,
-            file_options={"content-type": "application/pdf" if filename.endswith('.pdf') else "text/markdown"}
+            file_options={
+                "content-type": content_type,
+                "cache-control": "3600",
+                "upsert": "true"  # Sobrescribir si ya existe
+            }
         )
         
-        # Obtener URL pública
-        public_url = supabase.storage.from_(bucket_name).get_public_url(f"reportes/{filename}")
+        # Obtener URL pública (sin duplicar el nombre del bucket)
+        public_url = supabase.storage.from_(bucket_name).get_public_url(filename)
         
-        print(f"✅ Archivo subido a Supabase Storage: {public_url}")
+        print(f"   ✅ Subido: {filename} ({content_type})")
         return public_url
         
     except Exception as e:
-        print(f"⚠️ No se pudo subir a Supabase Storage: {e}")
+        print(f"   ⚠️ Error al subir: {e}")
         return None
 
 def save_report_to_file(report_content: str, periodo_texto: str, output_dir: str = "/tmp") -> str:
