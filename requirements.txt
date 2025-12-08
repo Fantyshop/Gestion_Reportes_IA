@@ -1,5 +1,17 @@
+# Supabase
 supabase>=2.0.0,<3.0.0
+
+# OpenAI (para embeddings y GPT-4)
 openai>=1.3.0
+
+# Anthropic (para Claude)
 anthropic>=0.34.0
+
+# Utilities
 python-dotenv
 requests>=2.31.0
+
+# Para generar PDFs y HTML desde Markdown
+markdown>=3.5.0
+weasyprint>=60.0
+beautifulsoup4>=4.12.0
