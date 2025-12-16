@@ -276,9 +276,17 @@ Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de c
 # PROMPT FINAL DE SÍNTESIS
 # ----------------------------------------------------
 
-PROMPT_SINTESIS_FINAL = """Eres el Jefe de Operaciones de Minera Centinela con 20 años de experiencia en minería de cobre.
+PROMPT_SINTESIS_FINAL = """Eres un analista técnico especializado en reportes operacionales mineros.
 
-Has recibido análisis detallados de las últimas {periodo} de operación. Tu tarea es sintetizar esta información en un **Reporte Ejecutivo Técnico** de clase mundial.
+Tu tarea: Sintetizar los análisis detallados en un **Reporte Ejecutivo Técnico** EXHAUSTIVO Y DETALLADO.
+
+**🚨 REGLAS CRÍTICAS - LEE ANTES DE GENERAR:**
+
+1. **NO INVENTES TARGETS**: Si un target NO está explícito en los datos, NO lo incluyas. NO uses columnas "Target" ni "Desviación" a menos que estén en los datos.
+2. **DETALLE MÁXIMO**: Cada tabla debe tener contexto completo - nombres, TAGs, fechas, horas, empresas, usuarios
+3. **TRAZABILIDAD**: Identifica QUIÉN reportó cada evento (busca nombres de usuarios/remitentes en datos)
+4. **NO MATRICES INÚTILES**: ELIMINA la "Matriz de Actividades por Superintendencia" - no aporta valor
+5. **ARCHIVOS ADJUNTOS**: Lista TODOS los PDFs, imágenes, documentos mencionados con sus nombres exactos
 
 **DATOS DE ENTRADA:**
 
@@ -290,148 +298,295 @@ Has recibido análisis detallados de las últimas {periodo} de operación. Tu ta
 
 {analisis_produccion}
 
-**ESTRUCTURA DEL REPORTE:**
-
-Genera un reporte en Markdown con la siguiente estructura:
+---
 
 # Reporte Ejecutivo Técnico - Minera Centinela
 **Período:** {periodo_texto}  
 **Generado:** {fecha_generacion}
 
 ## 1. RESUMEN EJECUTIVO
-Situación operacional general (2-3 párrafos), principales logros y desafíos, decisiones críticas requeridas.
+
+3-4 párrafos con:
+- Situación operacional general (usa NÚMEROS ESPECÍFICOS)
+- Logros cuantificados
+- Desafíos críticos con impacto medible
+- Decisiones requeridas con plazo
+
+---
 
 ## 2. ANÁLISIS DE CUMPLIMIENTO DE PLAN
 
 ### 2.1 Quiebres de Plan (QP)
-Para cada QP identificado en el análisis, incluye:
-- Número de QP
-- Equipo/Sistema con TAG
-- Horas perdidas e impacto
-- Causa raíz técnica
-- Acción correctiva con responsable
+
+**Si hay QPs, usa esta tabla:**
+| QP Número | Área | Fecha/Hora | Equipo/TAG | Horas Perdidas | Causa Raíz Específica | Impacto Cuantificado | Responsable | Reportado por | Estado |
+
+**Si NO hay QPs explícitos:** Indicar claramente "No se reportaron Quiebres de Plan formalizados en el período analizado"
 
 ### 2.2 Demoras Operacionales
-Crear tabla resumen de demoras con: Actividad, Demora (h), Causa, Impacto, Responsable
-Incluir análisis de causas recurrentes.
+
+**TABLA CON MÁXIMO DETALLE:**
+| Actividad Completa (incluir: nombre trabajo + equipo/TAG + ubicación específica + contexto) | Demora (horas exactas) | Causa Raíz Detallada | Impacto Cuantificado | Empresa/Responsable/Usuario | Fecha/Hora |
+
+**EJEMPLO DE DETALLE REQUERIDO:**
+✅ CORRECTO: "Cambio motor doble eje `762-ER-001` ubicado en sala eléctrica SSEE sector norte, requiere desconexión red contra incendio por procedimiento seguridad"
+❌ INCORRECTO: "Cambio motor"
+
+Incluir análisis de causas recurrentes con porcentajes calculados.
 
 ### 2.3 Actividades Emergentes
-Listar trabajos no programados, justificación e impacto en plan maestro.
+
+**FORMATO DETALLADO OBLIGATORIO:**
+
+Para CADA actividad emergente:
+
+**[Número]. [Nombre Actividad con TAG/ubicación]**
+- **Descripción completa:** [Qué se hizo exactamente]
+- **Actividad programada desplazada:** [Qué trabajo se tuvo que posponer]
+- **Recursos utilizados:** [Cantidad personas + empresa + especialidades + equipos + HH totales]
+- **Justificación urgencia:** [Por qué no podía esperar]
+- **Empresa ejecutora:** [Nombre empresa]
+- **Supervisor/Responsable:** [Nombre persona]
+- **Reportado por:** [Usuario que levantó]
+- **Fecha/Hora:** [Timestamp exacto]
+- **Impacto en plan maestro:** [Cuantificado]
+
+---
 
 ## 3. EJECUCIÓN DE ACTIVIDADES
 
-### Por Superintendencia y Empresa:
+**NIVEL DE DETALLE EXHAUSTIVO REQUERIDO**
 
-**IMPORTANTE**: Organiza las actividades jerárquicamente:
-1. Primero por Superintendencia (SSTT o IIEE)
-2. Luego por Empresa dentro de cada superintendencia
+### SUPERINTENDENCIA: SERVICIOS TRANSVERSALES (SSTT)
 
-#### SUPERINTENDENCIA: SERVICIOS TRANSVERSALES (SSTT)
+#### AMECO - Equipos de Izaje
 
-##### AMECO - Equipos de Izaje
-- Trabajos ejecutados con ubicaciones específicas
-- Equipos utilizados con TAGs
-- Problemas/Hallazgos
-- Estado de avance
+**Trabajos Ejecutados:**
+Para CADA trabajo:
+- Nombre trabajo + TAG equipo + ubicación exacta (Planta/Área/Nivel/Coordenadas)
+- Fecha/hora inicio - Fecha/hora término
+- Personal (cantidad + nombres si disponible)
+- Equipos utilizados (TAGs específicos)
+- Procedimiento aplicado
+- Estado final (completado %, pendientes)
+- Observaciones técnicas
 
-##### FTF - Andamiaje
-[Mismo formato]
+**Equipos Utilizados:**
+Lista de equipos con:
+- TAG
+- Tipo/Capacidad
+- Actividad en que se usó
+- Estado operacional
+- Problemas detectados
 
-##### ELEVEN - Equipos Apoyo
-[Mismo formato]
+**Problemas/Incidentes:**
+Para CADA problema:
+- Descripción técnica completa
+- Causa raíz si se conoce
+- Impacto (cuantificado)
+- Acción correctiva tomada
+- Responsable
+- Estado actual
 
-##### ATLAS COPCO - Mantenimiento Especializado
-[Mismo formato]
+**Reportado por:** [Usuarios que enviaron información]
 
-##### EQUANS - Climatización
-[Mismo formato]
+[REPETIR MISMO NIVEL DE DETALLE para: FTF, ELEVEN, ATLAS COPCO, EQUANS]
 
-#### SUPERINTENDENCIA: INSUMOS ESTRATÉGICOS (IIEE)
+### SUPERINTENDENCIA: INSUMOS ESTRATÉGICOS (IIEE)
 
-##### SERVILOG - Plantas RO
-- Trabajos ejecutados con ubicaciones específicas
-- Parámetros operacionales (producción, presión, temperatura)
-- Problemas/Hallazgos
-- Estado de avance
+#### SERVILOG - Plantas RO
 
-##### ELECMAIN - Mantenimiento Eléctrico AT
-[Mismo formato]
+**Producción Registrada:**
+- Turno día [fecha]: Moly XX m³, Sulfuro YY m³
+- Turno noche [fecha]: Moly XX m³, Sulfuro YY m³
+[Para cada turno reportado]
 
-### Matriz de Actividades por Superintendencia:
+**Parámetros Operacionales Registrados:**
+Para CADA equipo mencionado:
+- TAG: `UF-A Moly`
+  - Caudal: XX m³/h (fecha/turno)
+  - Presión: YY bar
+  - Frecuencia: ZZ Hz
+  - Temperatura: WW °C
+  - Observaciones
 
-| Superintendencia | Empresa | Actividades | Mensajes | Horas-Hombre Est. | Estado |
-|------------------|---------|-------------|----------|-------------------|--------|
-| SSTT | AMECO | ... | ... | ... | ... |
-| SSTT | FTF | ... | ... | ... | ... |
-| IIEE | SERVILOG | ... | ... | ... | ... |
-| IIEE | ELECMAIN | ... | ... | ... | ... |
+**Trabajos Ejecutados:** [Mismo detalle que AMECO]
+
+**Fallas/Problemas:** [Mismo detalle que AMECO]
+
+**Reportado por:** [Usuarios]
+
+[REPETIR para ELECMAIN]
+
+**🚫 NO INCLUIR "Matriz de Actividades por Superintendencia" - ELIMINAR ESA SECCIÓN**
+
+---
 
 ## 4. SEGURIDAD Y MEDIO AMBIENTE
 
 ### 4.1 Incidentes
-Para cada incidente: descripción técnica, análisis de causas, acciones correctivas, responsables y plazos.
+
+**TABLA COMPLETA:**
+| Fecha/Hora Exacta | Tipo | Descripción Técnica Detallada | Afectado (Nombre Completo) | Empresa del Afectado | Reportado por (Usuario/Remitente) | Causa Raíz | Acción Correctiva | Días Perdidos | Estado |
+
+**IMPORTANTE:** SIEMPRE incluir quién reportó (buscar en remitente de mensajes)
 
 ### 4.2 Hallazgos de Seguridad
-Listar condiciones inseguras detectadas, nivel de riesgo, acciones tomadas.
+
+**TABLA:**
+| Fecha/Hora | Descripción Específica del Hallazgo | Ubicación Exacta (Planta/Área/TAG) | Empresa Responsable Área | Detectado/Reportado por (Usuario) | Severidad | Riesgo Específico | Acción Inmediata Tomada | Estado Actual |
 
 ### 4.3 Compromisos Pendientes
-Tabla: Compromiso, Responsable, Plazo, Estado
+
+**TABLA CON CONTEXTO:**
+| Compromiso (descripción completa) | Responsable (Nombre + Cargo + Empresa) | Plazo Específico | Origen del Compromiso (qué evento/incidente lo generó) | Estado |
 
 ### 4.4 Indicadores
-Calcular frecuencia de incidentes y tendencia.
+
+- Frecuencia incidentes: [número] eventos en [horas] horas = [número] incidentes/día
+- Tendencia: [porcentajes por tipo]
+- Días perdidos totales: [número]
+- Análisis por tipo de incidente
+
+---
 
 ## 5. INDICADORES OPERACIONALES
 
 ### 5.1 Producción
-Tabla de KPIs: Indicador, Real, Target, Desviación, Estado (🔴/🟡/🟢)
+
+**🚨 REGLA: NO INCLUIR COLUMNAS "TARGET" NI "DESVIACIÓN" A MENOS QUE ESTÉN EXPLÍCITAS EN LOS DATOS**
+
+**TABLA SIMPLIFICADA (usar siempre):**
+| Equipo/TAG | Parámetro | Valor Real | Unidad | Fecha/Turno | Observaciones Técnicas |
+
+**EJEMPLO:**
+| `UF-A Moly` | Caudal | 68 | m³/h | 09/12 Turno Día | Operando bajo frecuencia nominal (40 Hz vs diseño 49 Hz) |
+
+**SOLO SI** el target está explícito en datos, agregar columnas:
+| Equipo/TAG | Parámetro | Valor Real | Target Reportado | Desviación | Unidad | Fecha/Turno |
 
 ### 5.2 Disponibilidad de Equipos Críticos
-Tabla: Equipo, TAG, Disponibilidad Real vs Target, Causa principal detención
+
+**🚨 NO INCLUIR COLUMNA "TARGET" NI "DISPONIBILIDAD %"**
+
+**TABLA SIMPLIFICADA:**
+| Equipo/TAG | Tiempo Operativo (h) | Tiempo Detenido (h) | Causa Principal Detención Detallada | Empresa Responsable | Reportado por |
 
 ### 5.3 Parámetros Fuera de Rango
-Listar variables que excedieron límites, impacto y acciones.
+
+**SOLO listar si hay rango normal mencionado EXPLÍCITAMENTE**
+
+Si no hay rangos: "No se reportaron rangos normales de operación para comparación"
+
+---
 
 ## 6. ANÁLISIS DE TENDENCIAS
 
 ### 6.1 Equipos con Fallas Recurrentes
-Identificar equipos con múltiples fallas, analizar patrón.
+
+Lista numerada:
+1. [Equipo/Sistema]: [Patrón identificado] - [Frecuencia] - [Impacto acumulado] - [Acción sugerida]
 
 ### 6.2 Áreas con Mayor Actividad
-Ranking por horas-hombre, justificación.
 
-## 7. RECOMENDACIONES Y ACCIONES
-
-### Corto Plazo (1-7 días)
-Lista numerada de acciones concretas con responsable y plazo.
-
-### Mediano Plazo (1-4 semanas)
-Mejoras de proceso/sistema.
-
-### Largo Plazo (>1 mes)
-Inversiones/proyectos.
-
-## 8. ANEXOS
-
-### Anexo A: Evidencia Fotográfica/Video
-Lista de archivos adjuntos mencionados en conversaciones.
-
-### Anexo B: Detalle Técnico
-Procedimientos y especificaciones técnicas relevantes.
+Ranking:
+1. [Área]: [Cantidad trabajos] - [Descripción actividades principales] - [Empresas involucradas]
 
 ---
 
-**INSTRUCCIONES DE FORMATO:**
-- Usa Markdown profesional con tablas
-- Negrita para alertas críticas
-- Código para TAGs de equipos (ejemplo: `P-101`)
-- Emojis para estados: 🔴 Crítico, 🟡 Advertencia, 🟢 OK
-- Números exactos siempre que estén disponibles
-- Si falta información, indicar "No reportado"
-- Prioriza información accionable
+## 7. RECOMENDACIONES Y ACCIONES
 
-**TONO:** Técnico, directo, basado en datos, orientado a toma de decisiones.
+**FORMATO CON CONTEXTO COMPLETO OBLIGATORIO:**
 
-Genera el reporte completo ahora:"""
+### Corto Plazo (1-7 días)
+
+**[Número]. [Título Acción]**
+- **Contexto del problema:** [Descripción detallada del evento/hallazgo/demora que origina esta acción - incluir fecha, equipo, impacto]
+- **Acción específica requerida:** [Qué hacer exactamente - pasos concretos]
+- **Responsable:** [Nombre completo + Cargo + Empresa]
+- **Plazo específico:** [Fecha exacta]
+- **Justificación urgencia:** [Por qué es crítico hacerlo ahora - consecuencias de no hacerlo]
+- **Origen:** [Incidente/Hallazgo/Demora específico que lo causó con referencia a sección del reporte]
+- **Reportado/Escalado por:** [Usuario que levantó el tema]
+
+### Mediano Plazo (1-4 semanas)
+
+[Mismo formato con contexto completo]
+
+### Largo Plazo (>1 mes)
+
+[Mismo formato con contexto completo]
+
+---
+
+## 8. ANEXOS
+
+### Anexo A: Archivos y Evidencia Documental Analizada
+
+**LISTAR TODOS LOS ARCHIVOS MENCIONADOS EN LOS DATOS:**
+
+**PDFs Analizados:**
+- [nombre exacto archivo].pdf - [Descripción breve contenido]
+- [nombre].pdf - [Descripción]
+
+**Imágenes Analizadas:**
+- [descripción imagen] - [Qué muestra] - [Hallazgos visuales]
+- [descripción] - [Contenido]
+
+**Documentos Excel/CSV:**
+- [nombre archivo] - [Tipo datos]
+
+**Videos:**
+- [descripción] - [Contenido]
+
+**URLs Supabase Storage (si disponibles):**
+- [URL] - [Archivo]
+
+### Anexo B: Detalle Técnico
+
+Especificaciones, procedimientos, análisis metalúrgicos, protocolos mencionados en el análisis.
+
+---
+
+**FIRMA DEL REPORTE:**
+
+---
+
+**Reporte Generado Automáticamente por Sistema de Inteligencia Artificial**
+
+Basado en análisis de comunicaciones operacionales mediante:
+- **Vectorización:** OpenAI text-embedding-3-small (1,536 dimensiones)
+- **Análisis Multi-pasada:** Anthropic Claude Sonnet 4
+  - Pasada 1: Demoras y Quiebres de Plan
+  - Pasada 2: Actividades y Ubicaciones
+  - Pasada 3: Seguridad y Medio Ambiente
+  - Pasada 4: Producción e Indicadores Operacionales
+  - Pasada 5: Síntesis Ejecutiva
+- **Período analizado:** {periodo_texto}
+- **Mensajes procesados:** [Indicar cantidad si disponible]
+
+**Generado:** {fecha_generacion}  
+**Próxima actualización automática:** [fecha + 168 horas]
+
+**⚠️ IMPORTANTE:** Este reporte requiere validación humana antes de distribución formal a gerencia. 
+
+**Contacto Técnico:**  
+GSdSO - Gerencia de Servicio de Soporte a la Operación  
+Minera Centinela - Antofagasta Minerals
+
+---
+
+**INSTRUCCIONES FINALES:**
+- Markdown profesional
+- **Negrita** para críticos
+- `Código` para TAGs
+- 🔴🟡🟢 para estados
+- Números EXACTOS
+- "No reportado" si falta
+- NO inventar
+- MÁXIMO DETALLE en TODAS las tablas
+
+Genera el reporte ahora:"""
 
 def generate_advanced_technical_report(messages: list, groups_data: dict, periodo_texto: str) -> str:
     """
