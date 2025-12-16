@@ -192,16 +192,22 @@ Responde SOLO con el JSON válido, sin explicaciones adicionales ni bloques de c
 
 PROMPT_ANALISIS_PRODUCCION_KPI = """Eres un ingeniero de procesos experto en KPIs operacionales mineros.
 
-Extrae TODOS los indicadores, métricas y datos de producción mencionados:
+Extrae ÚNICAMENTE los indicadores, métricas y datos que estén **EXPLÍCITAMENTE MENCIONADOS** en las conversaciones.
 
-**INDICADORES A IDENTIFICAR:**
+**REGLA CRÍTICA: NO ASUMIR NI INVENTAR TARGETS**
+- Solo reporta targets si están claramente mencionados en el texto
+- Si no hay target explícito, deja el campo como null o "No reportado"
+- No calcules desviaciones si no hay target mencionado
+- No asumas rangos normales no especificados
+
+**INDICADORES A IDENTIFICAR (solo si están presentes):**
 
 1. **PRODUCCIÓN**
    - Tonelaje procesado (ton/h, ton/día)
    - Caudales (m³/h, L/min, GPM)
    - Porcentaje de capacidad utilizada
    - Eficiencia operacional
-   - Targets vs real
+   - Target SOLO si se menciona explícitamente
 
 2. **PARÁMETROS DE PROCESO**
    - Presiones (bar, PSI, kPa)
@@ -209,14 +215,14 @@ Extrae TODOS los indicadores, métricas y datos de producción mencionados:
    - Niveles (%, m)
    - Concentraciones (g/L, ppm)
    - pH, conductividad
-   - Velocidades (RPM, m/s)
+   - Velocidades (RPM, m/s, Hz)
+   - Frecuencias (Hz)
 
 3. **DISPONIBILIDAD Y CONFIABILIDAD**
-   - Tiempo operativo
-   - Tiempo detenido
-   - Disponibilidad % (Uptime)
-   - MTBF (tiempo medio entre fallas)
-   - MTTR (tiempo medio de reparación)
+   - Tiempo operativo (solo si se menciona)
+   - Tiempo detenido (solo si se menciona)
+   - Disponibilidad % (solo si se reporta)
+   - Causas de detención mencionadas
 
 4. **CONSUMOS**
    - Energía (kW, kWh, MW)
@@ -229,13 +235,37 @@ Extrae TODOS los indicadores, métricas y datos de producción mencionados:
    - En mantenimiento
    - Detenido
    - En espera
+   - Fuera de servicio
 
 **FORMATO DE SALIDA:**
-Responde con un objeto JSON que contenga:
-- produccion: array con equipo, parametro, valor, unidad, target, desviacion, desviacion_porcentaje, fecha, turno
-- parametros_proceso: array con equipo, parametro, valor, unidad, rango_normal, estado, fecha
-- disponibilidad: array con equipo, periodo, tiempo_operativo_h, tiempo_detenido_h, disponibilidad_porcentaje, target_porcentaje, causas_detencion
-- consumos: array con area, parametro, valor, unidad, periodo, fecha
+Responde con un objeto JSON. Para cada campo de "target", "rango_normal", o "desviacion":
+- Si NO está mencionado explícitamente: usa null o "No reportado"
+- Si SÍ está mencionado: incluye el valor exacto
+
+Estructura JSON:
+- produccion: array con:
+  * equipo, parametro, valor, unidad
+  * target: (null si no se menciona)
+  * desviacion: (null si no hay target)
+  * desviacion_porcentaje: (null si no hay target)
+  * fecha, turno
+  
+- parametros_proceso: array con:
+  * equipo, parametro, valor, unidad
+  * rango_normal: (null si no se menciona)
+  * estado: ("normal", "fuera de rango", "crítico" solo si se indica)
+  * fecha
+  
+- disponibilidad: array con:
+  * equipo, periodo
+  * tiempo_operativo_h: (null si no se menciona)
+  * tiempo_detenido_h: (null si no se menciona)
+  * disponibilidad_porcentaje: (null si no se calcula)
+  * target_porcentaje: (null si no se menciona)
+  * causas_detencion: (lista de causas mencionadas)
+  
+- consumos: array con:
+  * area, parametro, valor, unidad, periodo, fecha
 
 Conversaciones:
 {conversaciones}
