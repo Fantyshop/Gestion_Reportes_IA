@@ -5,9 +5,22 @@ Mantiene el contenido técnico, mejora la presentación visual
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import markdown
 from bs4 import BeautifulSoup
+
+def get_chile_time():
+    """
+    Obtiene la hora actual en zona horaria de Chile (UTC-3 o UTC-4 según DST).
+    Durante el período sin DST (invierno): UTC-3
+    Durante DST (verano): UTC-4
+    
+    Para simplificar, usamos UTC-3 como estándar de Chile continental.
+    """
+    utc_now = datetime.utcnow()
+    chile_offset = timedelta(hours=-3)  # Chile Standard Time
+    chile_time = utc_now + chile_offset
+    return chile_time
 
 def convert_report_to_html(markdown_content: str, periodo_texto: str) -> str:
     """
@@ -84,47 +97,48 @@ def convert_report_to_html(markdown_content: str, periodo_texto: str) -> str:
         .header {{
             background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
             color: var(--color-white);
-            padding: 40px 50px;
-            border-bottom: 5px solid var(--color-secondary);
+            padding: 25px 40px;  /* Reducido de 40px a 25px */
+            border-bottom: 4px solid var(--color-secondary);
         }}
         
         .header-top {{
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 12px;  /* Reducido de 20px */
         }}
         
         .header h1 {{
-            font-size: 2.2em;
-            font-weight: 700;
+            font-size: 1.5em;  /* Reducido de 2.2em */
+            font-weight: 600;  /* Reducido de 700 */
             margin: 0;
         }}
         
         .header-icon {{
-            font-size: 3em;
+            font-size: 2em;  /* Reducido de 3em */
         }}
         
         .header-subtitle {{
-            font-size: 1.1em;
+            font-size: 0.95em;  /* Reducido de 1.1em */
             opacity: 0.95;
-            margin: 10px 0;
+            margin: 8px 0;  /* Reducido de 10px */
         }}
         
         .header-meta {{
             display: flex;
-            gap: 30px;
-            margin-top: 20px;
+            gap: 20px;  /* Reducido de 30px */
+            margin-top: 12px;  /* Reducido de 20px */
             flex-wrap: wrap;
         }}
         
         .meta-item {{
             background: rgba(255,255,255,0.15);
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 8px 15px;  /* Reducido de 10px 20px */
+            border-radius: 6px;  /* Reducido de 8px */
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;  /* Reducido de 10px */
+            font-size: 0.9em;  /* Añadido para texto más pequeño */
         }}
         
         .meta-item strong {{
@@ -378,7 +392,7 @@ def convert_report_to_html(markdown_content: str, periodo_texto: str) -> str:
             <div class="header-top">
                 <div>
                     <h1>📊 Reporte Ejecutivo Técnico</h1>
-                    <div class="header-subtitle">Minera Centinela - Gestión de Sistemas de Operación (GSdSO)</div>
+                    <div class="header-subtitle">Minera Centinela - Gerencia de Servicio de Soporte a la Operación (GSdSO)</div>
                 </div>
                 <div class="header-icon">⚙️</div>
             </div>
@@ -389,7 +403,7 @@ def convert_report_to_html(markdown_content: str, periodo_texto: str) -> str:
                 </div>
                 <div class="meta-item">
                     <span>🕐</span>
-                    <div><strong>Generado:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</div>
+                    <div><strong>Generado:</strong> {get_chile_time().strftime('%d/%m/%Y %H:%M:%S')}</div>
                 </div>
                 <div class="meta-item">
                     <span>🏢</span>
@@ -406,7 +420,7 @@ def convert_report_to_html(markdown_content: str, periodo_texto: str) -> str:
         <!-- FOOTER -->
         <div class="footer">
             <div class="footer-brand">Minera Centinela</div>
-            <p>Antofagasta Minerals - Gestión de Sistemas de Operación (GSdSO)</p>
+            <p>Antofagasta Minerals - Gerencia de Servicio de Soporte a la Operación (GSdSO)</p>
             <p>Sistema de Reportes Automatizados con Inteligencia Artificial</p>
             <p style="margin-top: 15px; font-size: 0.9em; opacity: 0.7;">
                 Este reporte fue generado automáticamente basado en análisis de comunicaciones operacionales
